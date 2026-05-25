@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Clock, RotateCcw, ShieldAlert, Save, Lock, Timer, CalendarClock } from 'lucide-react';
+import { Clock, RotateCcw, ShieldAlert, Save, Lock, CalendarClock, Gift, AlertTriangle, Monitor, Plus, X } from 'lucide-react';
 import type { DailyData } from '../types';
 import { useTheme } from '../ThemeContext';
 import SaveConfirmationModal from './SaveConfirmationModal';
@@ -13,13 +12,14 @@ interface SpellInputProps {
   effectiveLimit: number;
   isAdmin: boolean;
   isFutureDate: boolean;
+  useSpells: boolean;
   onUpdate: (dateKey: string, data: DailyData) => void;
   onReset: (dateKey: string) => void;
   onOverride: () => void;
 }
 
 export default function SpellInput({
-  dateKey, dailyData, isFullyBlocked, blockedMinutes, effectiveLimit, isAdmin, isFutureDate, onUpdate, onReset, onOverride
+  dateKey, dailyData, isFullyBlocked, blockedMinutes: _, effectiveLimit, isAdmin, isFutureDate, useSpells, onUpdate, onReset, onOverride
 }: SpellInputProps) {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
@@ -27,6 +27,12 @@ export default function SpellInput({
   const [spell1, setSpell1] = useState(dailyData.spell1 || 0);
   const [spell2, setSpell2] = useState(dailyData.spell2 || 0);
   const [spell3, setSpell3] = useState(dailyData.spell3 || 0);
+  const [singleTime, setSingleTime] = useState(dailyData.singleTime || 0);
+  const [bonusMinutes, setBonusMinutes] = useState(dailyData.bonusMinutes || 0);
+  const [penaltyMins, setPenaltyMins] = useState(dailyData.penaltyMinutes || 0);
+  const [penaltyReason, setPenaltyReason] = useState(dailyData.penaltyReason || '');
+  const [devices, setDevices] = useState<Record<string, number>>(dailyData.devices || {});
+  const [newDeviceName, setNewDeviceName] = useState('');
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -34,346 +40,213 @@ export default function SpellInput({
     setSpell1(dailyData.spell1 || 0);
     setSpell2(dailyData.spell2 || 0);
     setSpell3(dailyData.spell3 || 0);
+    setSingleTime(dailyData.singleTime || 0);
+    setBonusMinutes(dailyData.bonusMinutes || 0);
+    setPenaltyMins(dailyData.penaltyMinutes || 0);
+    setPenaltyReason(dailyData.penaltyReason || '');
+    setDevices(dailyData.devices || {});
   }, [dailyData, dateKey]);
 
-  const requestSave = () => {
-    if (isFutureDate || isFullyBlocked) return;
-    setShowSaveConfirm(true);
-  };
-
+  const requestSave = () => { if (isFutureDate || isFullyBlocked) return; setShowSaveConfirm(true); };
   const confirmSave = () => {
-    onUpdate(dateKey, { spell1, spell2, spell3 });
+    const data: DailyData = useSpells
+      ? { spell1, spell2, spell3, singleTime: 0, bonusMinutes, penaltyMinutes: penaltyMins, penaltyReason, devices }
+      : { spell1: 0, spell2: 0, spell3: 0, singleTime, bonusMinutes, penaltyMinutes: penaltyMins, penaltyReason, devices };
+    onUpdate(dateKey, data);
     setShowSaveConfirm(false);
   };
+  const requestReset = () => { if (isFutureDate) return; setShowResetConfirm(true); };
+  const confirmReset = () => { setSpell1(0); setSpell2(0); setSpell3(0); setSingleTime(0); setBonusMinutes(0); setPenaltyMins(0); setPenaltyReason(''); setDevices({}); onReset(dateKey); setShowResetConfirm(false); };
 
-  const requestReset = () => {
-    if (isFutureDate) return;
-    setShowResetConfirm(true);
-  };
+  const formatDate = (key: string) => { const d = new Date(key + 'T00:00:00'); return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); };
 
-  const confirmReset = () => {
-    setSpell1(0);
-    setSpell2(0);
-    setSpell3(0);
-    onReset(dateKey);
-    setShowResetConfirm(false);
-  };
-
-  const formatDate = (key: string) => {
-    const d = new Date(key + 'T00:00:00');
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  };
-
-  const total = spell1 + spell2 + spell3;
-  const isOverLimit = total > effectiveLimit;
+  const screenTotal = useSpells ? spell1 + spell2 + spell3 : singleTime;
+  const deviceTotal = Object.values(devices).reduce((s, v) => s + v, 0);
+  const total = screenTotal + deviceTotal;
+  const adjustedLimit = effectiveLimit + bonusMinutes - penaltyMins;
+  const isOverLimit = total > adjustedLimit;
   const disableEditing = isFutureDate || isFullyBlocked;
 
-  const futureBannerClassic = isFutureDate && (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 flex items-center gap-3">
-      <CalendarClock className="w-4 h-4 text-blue-700 flex-shrink-0" />
-      <div>
-        <p className="text-sm font-semibold text-blue-700">Future date is view-only</p>
-        <p className="text-xs text-blue-600">You can’t add or reset time for tomorrow or later dates.</p>
-      </div>
-    </div>
-  );
+  // Data from dailyData prop (for user read-only view)
+  const propScreenTotal = useSpells ? (dailyData.spell1 + dailyData.spell2 + dailyData.spell3) : (dailyData.singleTime || 0);
+  const propDeviceTotal = Object.values(dailyData.devices || {}).reduce((s, v) => s + v, 0);
+  const propTotal = propScreenTotal + propDeviceTotal;
+  const propAdjustedLimit = effectiveLimit + (dailyData.bonusMinutes || 0) - (dailyData.penaltyMinutes || 0);
 
-  const futureBannerGlass = isFutureDate && (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
-      <div className="bg-gradient-to-r from-blue-500 to-cyan-500 rounded-2xl p-4 flex items-center gap-3">
-        <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-          <CalendarClock className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <p className="text-white text-sm font-semibold">Future date is view-only</p>
-          <p className="text-white/70 text-xs">Limits for the next day can’t be added manually.</p>
-        </div>
-      </div>
-    </motion.div>
-  );
+  const addDevice = () => {
+    if (!newDeviceName.trim()) return;
+    setDevices(prev => ({ ...prev, [newDeviceName.trim()]: 0 }));
+    setNewDeviceName('');
+  };
 
   const modals = (
     <>
-      <SaveConfirmationModal
-        isOpen={showSaveConfirm}
-        actionLabel="save this time entry"
-        onClose={() => setShowSaveConfirm(false)}
-        onConfirm={confirmSave}
-      />
-      <SaveConfirmationModal
-        isOpen={showResetConfirm}
-        actionLabel="reset this time entry"
-        onClose={() => setShowResetConfirm(false)}
-        onConfirm={confirmReset}
-      />
+      <SaveConfirmationModal isOpen={showSaveConfirm} actionLabel="save this time entry" onClose={() => setShowSaveConfirm(false)} onConfirm={confirmSave} />
+      <SaveConfirmationModal isOpen={showResetConfirm} actionLabel="reset this time entry" onClose={() => setShowResetConfirm(false)} onConfirm={confirmReset} />
     </>
   );
 
-  /* ───── CLASSIC THEME ───── */
-  if (!isGlass) {
+  // ── Shared input styles ──
+  const inpCls = isGlass
+    ? 'w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold text-lg focus:outline-none focus:ring-2 focus:ring-gray-900/10 transition-all'
+    : 'w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg text-base bg-[#fafafa] font-medium focus:outline-none focus:border-[#0f0f0f] transition-all';
+  const smallInpCls = isGlass
+    ? 'w-full px-3 py-2 rounded-xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10 transition-all'
+    : 'w-full px-3 py-2 border border-[#e5e5e5] rounded-lg text-sm bg-[#fafafa] font-medium focus:outline-none focus:border-[#0f0f0f] transition-all';
+  const cardCls = isGlass ? 'glass-card' : 'bg-white border border-[#e5e5e5] rounded-xl';
+  const headCls = isGlass ? 'text-gray-900' : 'text-[#0f0f0f]';
+  const subCls = isGlass ? 'text-gray-400' : 'text-[#999]';
+  const btnPrimary = isGlass ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-[#0f0f0f] text-white hover:bg-[#333]';
+  const btnSecondary = isGlass ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'border border-[#e5e5e5] bg-white text-[#0f0f0f] hover:bg-[#f5f5f5]';
+
+  // ── USER READ-ONLY VIEW ──
+  if (!isAdmin) {
     return (
-      <>
-        <div className="bg-white border border-[#e5e5e5] rounded-xl p-7 transition-all duration-300 hover:border-[#d0d0d0] hover:shadow-sm">
-          <div className="text-lg font-semibold text-[#0f0f0f] mb-1">Log Time</div>
-          <div className="text-sm text-[#666] mb-5">{formatDate(dateKey)}</div>
+      <div className={`${cardCls} p-6 md:p-7`}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isGlass ? 'bg-gradient-to-br from-gray-900 to-gray-700' : 'bg-[#0f0f0f]'}`}>
+            <Clock className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className={`text-lg font-bold ${headCls}`}>Screen Time</h2>
+            <p className={`text-sm font-medium ${subCls}`}>{formatDate(dateKey)}</p>
+          </div>
+        </div>
 
-          {futureBannerClassic}
+        {isFutureDate && <div className={`${isGlass ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' : 'bg-blue-50 border border-blue-200 text-blue-700'} rounded-xl p-4 mb-4 flex items-center gap-3`}><CalendarClock className="w-4 h-4 flex-shrink-0" /><p className="text-sm font-semibold">Future date — view only</p></div>}
 
-          {!isAdmin && (
-            <div className="mb-5 space-y-3">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
-                <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-                <div>
-                  <p className="text-sm font-semibold text-amber-700">View Only</p>
-                  <p className="text-xs text-amber-600">Data entered by admin</p>
+        <div className={`rounded-xl p-4 mb-3 ${isGlass ? 'bg-amber-50 border border-amber-200' : 'bg-amber-50 border border-amber-200'}`}>
+          <div className="flex items-center gap-2"><Lock className="w-4 h-4 text-amber-700" /><p className="text-sm font-semibold text-amber-700">View Only — Data entered by admin</p></div>
+        </div>
+
+        {propTotal > 0 ? (
+          <div className="space-y-3">
+            {/* Screen time */}
+            <div className={`rounded-xl p-4 ${isGlass ? 'bg-gray-50' : 'bg-[#f5f5f5]'}`}>
+              {useSpells ? (
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div><p className={`text-[10px] font-bold uppercase ${subCls}`}>Spell 1</p><p className={`text-xl font-bold ${headCls}`}>{dailyData.spell1}</p></div>
+                  <div><p className={`text-[10px] font-bold uppercase ${subCls}`}>Spell 2</p><p className={`text-xl font-bold ${headCls}`}>{dailyData.spell2}</p></div>
+                  <div><p className={`text-[10px] font-bold uppercase ${subCls}`}>Spell 3</p><p className={`text-xl font-bold ${headCls}`}>{dailyData.spell3}</p></div>
                 </div>
-              </div>
-              {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > 0 && (
-                <div className="bg-[#f5f5f5] border border-[#e5e5e5] rounded-xl p-4">
-                  <div className="grid grid-cols-3 gap-3 text-center mb-3">
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 1</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell1}</p><p className="text-[10px] text-[#999]">min</p></div>
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 2</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell2}</p><p className="text-[10px] text-[#999]">min</p></div>
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 3</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell3}</p><p className="text-[10px] text-[#999]">min</p></div>
-                  </div>
-                  <div className={`text-center py-2 rounded-lg ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                    <span className="text-sm font-bold">{dailyData.spell1 + dailyData.spell2 + dailyData.spell3}</span><span className="text-xs"> / {effectiveLimit} min</span>
-                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">⚠️ Over limit by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit} min</span>}
-                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} min remaining</span>}
-                  </div>
-                </div>
-              )}
-              {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) === 0 && !isFutureDate && (
-                <div className="text-center py-4 bg-[#fafafa] border border-[#e5e5e5] rounded-xl">
-                  <p className="text-sm text-[#999]">No data entered for this date yet</p>
-                </div>
+              ) : (
+                <div className="text-center"><p className={`text-[10px] font-bold uppercase ${subCls}`}>Total Time</p><p className={`text-3xl font-bold ${headCls}`}>{dailyData.singleTime || 0}</p><p className={`text-xs ${subCls}`}>minutes</p></div>
               )}
             </div>
-          )}
 
-          {isFullyBlocked && (
-            <div className="bg-[#fee2e2] border border-[#ef4444] rounded-lg p-4 mb-5 flex items-center gap-3">
-              <Lock className="w-4 h-4 text-[#991b1b] flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-[#991b1b]">Day is Fully Blocked</p>
-                <p className="text-xs text-[#991b1b]/70">No screen time allowed due to penalty</p>
-              </div>
-            </div>
-          )}
-
-          {!isFullyBlocked && blockedMinutes > 0 && (
-            <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-5 flex items-center gap-3">
-              <Timer className="w-4 h-4 text-orange-700 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-orange-700">{blockedMinutes} min blocked</p>
-                <p className="text-xs text-orange-600">Available time: {effectiveLimit} min</p>
-              </div>
-            </div>
-          )}
-
-          {!isFullyBlocked && (
-            <>
-              <div className="grid grid-cols-3 gap-4 mb-5">
-                {[
-                  { label: 'Spell 1', value: spell1, setter: setSpell1 },
-                  { label: 'Spell 2', value: spell2, setter: setSpell2 },
-                  { label: 'Spell 3', value: spell3, setter: setSpell3 },
-                ].map(s => (
-                  <div key={s.label}>
-                    <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">{s.label}</label>
-                    <input
-                      type="number"
-                      value={s.value || ''}
-                      min={0}
-                      placeholder="0"
-                      readOnly={isFutureDate || !isAdmin}
-                      disabled={isFutureDate || !isAdmin}
-                      onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg text-base bg-[#fafafa] font-medium transition-all ${
-                        isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)]'
-                      }`}
-                    />
-                  </div>
+            {/* Devices */}
+            {dailyData.devices && Object.keys(dailyData.devices).length > 0 && (
+              <div className={`rounded-xl p-4 ${isGlass ? 'bg-gray-50' : 'bg-[#f5f5f5]'}`}>
+                <p className={`text-[10px] font-bold uppercase mb-2 ${subCls}`}><Monitor className="w-3 h-3 inline mr-1" />Other Devices</p>
+                {Object.entries(dailyData.devices).map(([name, mins]) => (
+                  <div key={name} className="flex justify-between text-sm py-1"><span className={subCls}>{name}</span><span className={`font-bold ${headCls}`}>{mins} min</span></div>
                 ))}
               </div>
+            )}
 
-              <div className={`text-center text-sm font-semibold mb-4 ${isOverLimit ? 'text-[#ef4444]' : 'text-[#666]'}`}>
-                Total: {total} / {effectiveLimit} min
-              </div>
+            {/* Bonus & Penalty */}
+            {(dailyData.bonusMinutes || 0) > 0 && <div className="flex items-center gap-2 text-sm text-green-600 font-semibold"><Gift className="w-4 h-4" /> +{dailyData.bonusMinutes} min bonus</div>}
+            {(dailyData.penaltyMinutes || 0) > 0 && <div className="text-sm"><div className="flex items-center gap-2 text-red-600 font-semibold"><AlertTriangle className="w-4 h-4" /> -{dailyData.penaltyMinutes} min penalty</div>{dailyData.penaltyReason && <p className={`text-xs ml-6 ${subCls}`}>{dailyData.penaltyReason}</p>}</div>}
 
-              {isAdmin && (
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <button
-                    onClick={requestSave}
-                    disabled={disableEditing}
-                    className="py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Update
-                  </button>
-                  <button
-                    onClick={requestReset}
-                    disabled={isFutureDate}
-                    className="py-2.5 rounded-lg border border-[#e5e5e5] bg-white text-[#0f0f0f] font-semibold text-sm hover:bg-[#f5f5f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {isAdmin && (
-            <button onClick={onOverride}
-              className="w-full py-2.5 rounded-lg bg-[#ef4444] text-white font-semibold text-sm hover:bg-[#dc2626] transition-colors flex items-center justify-center gap-2">
-              <ShieldAlert className="w-4 h-4" /> Admin Override
-            </button>
-          )}
-        </div>
-        {modals}
-      </>
+            {/* Total */}
+            <div className={`text-center py-3 rounded-xl font-bold ${propTotal > propAdjustedLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+              {propTotal} / {propAdjustedLimit} min
+              {propTotal > propAdjustedLimit ? ` ⚠️ Over by ${propTotal - propAdjustedLimit}` : ` ✅ ${propAdjustedLimit - propTotal} left`}
+            </div>
+          </div>
+        ) : (
+          !isFutureDate && <div className={`text-center py-6 rounded-xl ${isGlass ? 'bg-gray-50' : 'bg-[#f5f5f5]'}`}><p className={`text-sm ${subCls}`}>No data entered for this date</p></div>
+        )}
+      </div>
     );
   }
 
-  /* ───── GLASS THEME ───── */
+  // ── ADMIN EDIT VIEW ──
   return (
     <>
-      <div className="glass-card overflow-hidden">
-        <div className="px-6 pt-6 md:px-8 md:pt-8 pb-0">
-          <div className="flex items-start justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-lg shadow-gray-900/15">
-                <Clock className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Log Time</h2>
-                <p className="text-sm text-gray-400 font-medium">{formatDate(dateKey)}</p>
-              </div>
-            </div>
+      <div className={`${cardCls} p-6 md:p-7`}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg ${isGlass ? 'bg-gradient-to-br from-gray-900 to-gray-700' : 'bg-[#0f0f0f]'}`}>
+            <Clock className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className={`text-lg font-bold ${headCls}`}>Log Time</h2>
+            <p className={`text-sm font-medium ${subCls}`}>{formatDate(dateKey)}</p>
           </div>
         </div>
 
-        {futureBannerGlass}
+        {isFutureDate && <div className={`${isGlass ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' : 'bg-blue-50 border border-blue-200 text-blue-700'} rounded-xl p-4 mb-4 flex items-center gap-3`}><CalendarClock className="w-4 h-4 flex-shrink-0" /><p className="text-sm font-semibold">Future date — view only</p></div>}
 
-        {!isAdmin && (
-          <div className="mx-6 md:mx-8 mt-4 space-y-3">
-            <div className="bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Lock className="w-4 h-4 text-white" />
-              </div>
+        {isFullyBlocked && <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 flex items-center gap-3"><Lock className="w-4 h-4 text-red-600" /><div><p className="text-sm font-semibold text-red-600">Fully Blocked</p><p className="text-xs text-red-500">No screen time allowed</p></div></div>}
+
+        {!isFullyBlocked && (
+          <div className="space-y-4">
+            {/* Screen Time Input */}
+            {useSpells ? (
               <div>
-                <p className="text-white text-sm font-semibold">View Only</p>
-                <p className="text-white/70 text-xs">Data entered by admin</p>
+                <p className={`text-xs font-bold uppercase mb-2 ${subCls}`}>Screen Time (3 Spells)</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[{ l: 'Spell 1', v: spell1, s: setSpell1 }, { l: 'Spell 2', v: spell2, s: setSpell2 }, { l: 'Spell 3', v: spell3, s: setSpell3 }].map(sp => (
+                    <div key={sp.l}><label className={`text-xs font-semibold ${subCls}`}>{sp.l}</label><input type="number" value={sp.v || ''} min={0} readOnly={isFutureDate} disabled={isFutureDate} onChange={e => sp.s(Math.max(0, parseInt(e.target.value) || 0))} className={inpCls} /></div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <p className={`text-xs font-bold uppercase mb-2 ${subCls}`}>Total Screen Time</p>
+                <input type="number" value={singleTime || ''} min={0} placeholder="Minutes" readOnly={isFutureDate} disabled={isFutureDate} onChange={e => setSingleTime(Math.max(0, parseInt(e.target.value) || 0))} className={inpCls} />
+              </div>
+            )}
+
+            {/* Other Devices */}
+            <div>
+              <p className={`text-xs font-bold uppercase mb-2 ${subCls}`}><Monitor className="w-3 h-3 inline mr-1" />Other Devices</p>
+              {Object.entries(devices).map(([name, mins]) => (
+                <div key={name} className="flex items-center gap-2 mb-2">
+                  <span className={`text-sm font-semibold w-24 truncate ${headCls}`}>{name}</span>
+                  <input type="number" value={mins || ''} min={0} onChange={e => setDevices(prev => ({ ...prev, [name]: Math.max(0, parseInt(e.target.value) || 0) }))} className={smallInpCls} />
+                  <span className={`text-xs ${subCls}`}>min</span>
+                  <button onClick={() => setDevices(prev => { const n = { ...prev }; delete n[name]; return n; })} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
+              <div className="flex items-center gap-2">
+                <input value={newDeviceName} onChange={e => setNewDeviceName(e.target.value)} placeholder="TV, iPad, Computer..." className={smallInpCls} onKeyDown={e => e.key === 'Enter' && addDevice()} />
+                <button onClick={addDevice} className={`px-3 py-2 rounded-lg text-xs font-semibold ${btnSecondary}`}><Plus className="w-3 h-3" /></button>
               </div>
             </div>
-            {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > 0 && (
-              <div className="glass-card p-4">
-                <div className="grid grid-cols-3 gap-3 text-center mb-3">
-                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 1</p><p className="text-xl font-bold text-gray-900">{dailyData.spell1}</p><p className="text-[10px] text-gray-400">min</p></div>
-                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 2</p><p className="text-xl font-bold text-gray-900">{dailyData.spell2}</p><p className="text-[10px] text-gray-400">min</p></div>
-                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 3</p><p className="text-xl font-bold text-gray-900">{dailyData.spell3}</p><p className="text-[10px] text-gray-400">min</p></div>
-                </div>
-                <div className={`text-center py-2 rounded-xl ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  <span className="text-sm font-bold">{dailyData.spell1 + dailyData.spell2 + dailyData.spell3}</span><span className="text-xs"> / {effectiveLimit} min</span>
-                  {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">⚠️ Over by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit}</span>}
-                  {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} left</span>}
-                </div>
+
+            {/* Bonus Time */}
+            <div>
+              <p className={`text-xs font-bold uppercase mb-2 text-green-600`}><Gift className="w-3 h-3 inline mr-1" />Bonus Time</p>
+              <input type="number" value={bonusMinutes || ''} min={0} placeholder="Extra minutes" onChange={e => setBonusMinutes(Math.max(0, parseInt(e.target.value) || 0))} className={smallInpCls} />
+            </div>
+
+            {/* Manual Penalty */}
+            <div>
+              <p className={`text-xs font-bold uppercase mb-2 text-red-600`}><AlertTriangle className="w-3 h-3 inline mr-1" />Manual Penalty</p>
+              <div className="flex gap-2">
+                <input type="number" value={penaltyMins || ''} min={0} placeholder="Minutes" onChange={e => setPenaltyMins(Math.max(0, parseInt(e.target.value) || 0))} className={smallInpCls + ' w-24'} />
+                <input value={penaltyReason} onChange={e => setPenaltyReason(e.target.value)} placeholder="Reason (e.g. complaint)" className={smallInpCls} />
               </div>
-            )}
-            {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) === 0 && !isFutureDate && (
-              <div className="text-center py-4 glass-card">
-                <p className="text-sm text-gray-400">No data entered for this date yet</p>
-              </div>
-            )}
+            </div>
+
+            {/* Total Summary */}
+            <div className={`text-center py-3 rounded-xl font-bold text-sm ${isOverLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+              Screen: {screenTotal} + Devices: {deviceTotal}
+              {bonusMinutes > 0 && <span className="text-green-600"> + {bonusMinutes} bonus</span>}
+              {penaltyMins > 0 && <span className="text-red-500"> − {penaltyMins} penalty</span>}
+              {' = '}<strong>{total}</strong> / {adjustedLimit} min
+            </div>
+
+            {/* Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={requestSave} disabled={disableEditing} className={`py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 ${btnPrimary}`}><Save className="w-4 h-4" /> Save</button>
+              <button onClick={requestReset} disabled={isFutureDate} className={`py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 ${btnSecondary}`}><RotateCcw className="w-4 h-4" /> Reset</button>
+            </div>
+
+            <button onClick={onOverride} className="w-full py-2.5 rounded-lg bg-red-50 text-red-600 font-semibold text-sm hover:bg-red-100 border border-red-200/50 flex items-center justify-center gap-2"><ShieldAlert className="w-4 h-4" /> Admin Override</button>
           </div>
         )}
-
-        {isFullyBlocked && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
-            <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Lock className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-white text-sm font-semibold">Day is Fully Blocked</p>
-                <p className="text-white/70 text-xs">No screen time allowed due to penalty carry-forward</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {!isFullyBlocked && blockedMinutes > 0 && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
-            <div className="bg-gradient-to-r from-orange-400 to-orange-500 rounded-2xl p-4 flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Timer className="w-4 h-4 text-white" />
-              </div>
-              <div>
-                <p className="text-white text-sm font-semibold">{blockedMinutes} min blocked</p>
-                <p className="text-white/70 text-xs">Available time reduced to {effectiveLimit} min today</p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        <div className="p-6 md:p-8 space-y-5">
-          {!isFullyBlocked && (
-            <>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Spell 1', value: spell1, setter: setSpell1, gradient: 'from-blue-500 to-cyan-500' },
-                  { label: 'Spell 2', value: spell2, setter: setSpell2, gradient: 'from-purple-500 to-pink-500' },
-                  { label: 'Spell 3', value: spell3, setter: setSpell3, gradient: 'from-orange-500 to-amber-500' },
-                ].map((spell) => (
-                  <div key={spell.label} className="space-y-2">
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{spell.label}</label>
-                    <div className="relative">
-                      <input
-                        type="number"
-                        value={spell.value || ''}
-                        min={0}
-                        placeholder="0"
-                        readOnly={isFutureDate}
-                        disabled={isFutureDate}
-                        onChange={(e) => spell.setter(Math.max(0, parseInt(e.target.value) || 0))}
-                        className={`w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold text-lg transition-all duration-200 placeholder:text-gray-300 ${
-                          isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 focus:bg-white'
-                        }`}
-                      />
-                      <div className={`absolute top-0 left-0 w-full h-0.5 rounded-t-2xl bg-gradient-to-r ${spell.gradient} opacity-60`} />
-                    </div>
-                    <p className="text-xs text-gray-400 text-center font-medium">{spell.value || 0} min</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-center py-2">
-                <div className={`flex items-center gap-2 rounded-full px-5 py-2 transition-colors duration-200 ${isOverLimit ? 'bg-red-100' : 'bg-gray-100'}`}>
-                  <span className={`text-sm font-bold ${isOverLimit ? 'text-red-600' : 'text-gray-900'}`}>{total}</span>
-                  <span className={`text-xs ${isOverLimit ? 'text-red-400' : 'text-gray-400'}`}>/ {effectiveLimit} min</span>
-                </div>
-              </div>
-
-              {isAdmin && (<div className="grid grid-cols-2 gap-3 pt-1">
-                <motion.button whileTap={{ scale: disableEditing ? 1 : 0.97 }} onClick={requestSave}
-                  disabled={disableEditing}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 transition-all duration-200 shadow-lg shadow-gray-900/15 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-900">
-                  <Save className="w-4 h-4" /> Save
-                </motion.button>
-                <motion.button whileTap={{ scale: isFutureDate ? 1 : 0.97 }} onClick={requestReset}
-                  disabled={isFutureDate}
-                  className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-all duration-200 border border-gray-200/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-100">
-                  <RotateCcw className="w-4 h-4" /> Reset
-                </motion.button>
-              </div>)}
-            </>
-          )}
-
-          {isAdmin && (
-            <motion.button whileTap={{ scale: 0.97 }} onClick={onOverride}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-red-50 text-red-600 font-semibold text-sm hover:bg-red-100 transition-all duration-200 border border-red-200/50">
-              <ShieldAlert className="w-4 h-4" /> Admin Override
-            </motion.button>
-          )}
-        </div>
       </div>
       {modals}
     </>

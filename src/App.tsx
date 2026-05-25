@@ -114,6 +114,7 @@ function Dashboard() {
                 onReset={resetSpells}
                 onOverride={() => setShowOverride(true)}
                 isAdmin={isAdmin}
+                useSpells={state.settings.useSpells ?? true}
               />
               <Calendar
                 month={state.currentMonth}
@@ -248,6 +249,7 @@ function Dashboard() {
               onReset={resetSpells}
               onOverride={() => setShowOverride(true)}
               isAdmin={isAdmin}
+                useSpells={state.settings.useSpells ?? true}
             />
             <Calendar
               month={state.currentMonth}
