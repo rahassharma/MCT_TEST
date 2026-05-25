@@ -153,8 +153,11 @@ export function useStore(userKey: string | null) {
       const deviceTime = Object.values(data.devices || {}).reduce((s: number, v) => s + (v as number), 0);
       const total = screenTime + deviceTime;
       const effectiveLimit = getEffectiveLimit(blocked[dateKey], maxTime);
-      const excess = Math.max(0, total - effectiveLimit);
-      const penalty = Math.round(excess * penaltyRatio);
+      const adjustedLimit = effectiveLimit + (data.bonusMinutes || 0) - (data.penaltyMinutes || 0);
+      const excess = Math.max(0, total - adjustedLimit);
+      const autoPenalty = Math.round(excess * penaltyRatio);
+      const manualPenalty = data.penaltyMinutes || 0;
+      const penalty = autoPenalty + manualPenalty;
 
       if (penalty > 0) {
         const nextDate = new Date(dateKey + 'T00:00:00');

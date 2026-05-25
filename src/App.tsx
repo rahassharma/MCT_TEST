@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Sparkles, LogOut, Shield, Settings2 } from 'lucide-react';
+import { Monitor, Sparkles, LogOut, Shield, Settings2, AlertTriangle, X } from 'lucide-react';
 import Calendar from './components/Calendar';
 import SpellInput from './components/SpellInput';
 import StatsPanel from './components/StatsPanel';
@@ -34,6 +34,11 @@ function Dashboard() {
   } = useStore(userKey);
 
   const [showOverride, setShowOverride] = useState(false);
+  const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [penaltyAmount, setPenaltyAmount] = useState('');
+  const [penaltyReason, setPenaltyReason] = useState('');
+
+  // Tracked devices (stored in settings or local)
   const [showSettings, setShowSettings] = useState(false);
 
   const selectedData = getDailyData(state.selectedDate);
@@ -78,6 +83,12 @@ function Dashboard() {
               </div>
               {syncIndicator}
               <ThemeToggle />
+              {isAdmin && (
+                <button onClick={() => setShowPenaltyModal(true)} title="Quick Penalty"
+                  className="w-9 h-9 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors text-red-500 hover:text-red-700">
+                  <AlertTriangle className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-lg border border-[#e5e5e5] bg-white hover:bg-[#f5f5f5] flex items-center justify-center transition-colors text-[#666] hover:text-[#0f0f0f]">
                 <Settings2 className="w-4 h-4" />
@@ -205,6 +216,12 @@ function Dashboard() {
 
               {syncIndicator}
               <ThemeToggle />
+              {isAdmin && (
+                <button onClick={() => setShowPenaltyModal(true)} title="Quick Penalty"
+                  className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 border border-red-200/50 flex items-center justify-center transition-all text-red-500 hover:text-red-700 hover:scale-105 active:scale-95">
+                  <AlertTriangle className="w-4 h-4" />
+                </button>
+              )}
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200/50 flex items-center justify-center transition-all text-gray-500 hover:text-gray-900 hover:scale-105 active:scale-95">
                 <Settings2 className="w-4 h-4" />
@@ -291,6 +308,43 @@ function Dashboard() {
           </p>
         </motion.div>
       </main>
+
+
+      {/* Quick Penalty Modal */}
+      {showPenaltyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className={`absolute inset-0 ${isGlass ? 'bg-black/30 backdrop-blur-md' : 'bg-black/50'}`} onClick={() => setShowPenaltyModal(false)} />
+          <div className={`relative w-full max-w-md rounded-2xl p-6 shadow-2xl ${isGlass ? 'bg-white/95 backdrop-blur-2xl' : 'bg-white'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h3 className={`text-lg font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Apply Penalty</h3>
+              </div>
+              <button onClick={() => setShowPenaltyModal(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            <p className={`text-xs mb-4 ${isGlass ? 'text-gray-500' : 'text-[#999]'}`}>Applied to: <strong>{state.selectedDate}</strong> — penalty carries forward like regular penalties</p>
+            <div className="space-y-3">
+              <input type="number" value={penaltyAmount} onChange={e => setPenaltyAmount(e.target.value)} placeholder="Penalty minutes" className={`w-full px-4 py-3 rounded-xl border text-sm font-semibold ${isGlass ? 'bg-gray-50 border-gray-200/80 focus:ring-2 focus:ring-gray-900/10' : 'bg-[#fafafa] border-[#e5e5e5] focus:border-[#0f0f0f]'} focus:outline-none`} />
+              <input value={penaltyReason} onChange={e => setPenaltyReason(e.target.value)} placeholder="Reason (complaint, rule violation...)" className={`w-full px-4 py-3 rounded-xl border text-sm ${isGlass ? 'bg-gray-50 border-gray-200/80 focus:ring-2 focus:ring-gray-900/10' : 'bg-[#fafafa] border-[#e5e5e5] focus:border-[#0f0f0f]'} focus:outline-none`} />
+              <button onClick={() => {
+                const mins = parseInt(penaltyAmount) || 0;
+                if (mins <= 0) return;
+                const current = getDailyData(state.selectedDate);
+                updateSpells(state.selectedDate, {
+                  ...current,
+                  penaltyMinutes: (current.penaltyMinutes || 0) + mins,
+                  penaltyReason: penaltyReason || 'Manual penalty',
+                });
+                setPenaltyAmount('');
+                setPenaltyReason('');
+                setShowPenaltyModal(false);
+              }} className={`w-full py-3 rounded-xl font-semibold text-sm ${isGlass ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-red-500 text-white hover:bg-red-600'}`}>
+                Apply Penalty
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <OverrideModal
         isOpen={showOverride}
