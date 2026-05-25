@@ -119,6 +119,16 @@ export default function SpellInput({
 
           {futureBannerClassic}
 
+          {!isAdmin && !isFutureDate && !isFullyBlocked && (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5 flex items-center gap-3">
+              <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-amber-700">View Only</p>
+                <p className="text-xs text-amber-600">Only admin can edit screen time data</p>
+              </div>
+            </div>
+          )}
+
           {isFullyBlocked && (
             <div className="bg-[#fee2e2] border border-[#ef4444] rounded-lg p-4 mb-5 flex items-center gap-3">
               <Lock className="w-4 h-4 text-[#991b1b] flex-shrink-0" />
@@ -154,8 +164,8 @@ export default function SpellInput({
                       value={s.value || ''}
                       min={0}
                       placeholder="0"
-                      readOnly={isFutureDate}
-                      disabled={isFutureDate}
+                      readOnly={isFutureDate || !isAdmin}
+                      disabled={isFutureDate || !isAdmin}
                       onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
                       className={`w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg text-base bg-[#fafafa] font-medium transition-all ${
                         isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)]'
@@ -169,22 +179,24 @@ export default function SpellInput({
                 Total: {total} / {effectiveLimit} min
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <button
-                  onClick={requestSave}
-                  disabled={disableEditing}
-                  className="py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Update
-                </button>
-                <button
-                  onClick={requestReset}
-                  disabled={isFutureDate}
-                  className="py-2.5 rounded-lg border border-[#e5e5e5] bg-white text-[#0f0f0f] font-semibold text-sm hover:bg-[#f5f5f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Reset
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <button
+                    onClick={requestSave}
+                    disabled={disableEditing}
+                    className="py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Update
+                  </button>
+                  <button
+                    onClick={requestReset}
+                    disabled={isFutureDate}
+                    className="py-2.5 rounded-lg border border-[#e5e5e5] bg-white text-[#0f0f0f] font-semibold text-sm hover:bg-[#f5f5f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Reset
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -219,6 +231,20 @@ export default function SpellInput({
         </div>
 
         {futureBannerGlass}
+
+        {!isAdmin && !isFutureDate && !isFullyBlocked && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
+            <div className="bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl p-4 flex items-center gap-3">
+              <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Lock className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <p className="text-white text-sm font-semibold">View Only</p>
+                <p className="text-white/70 text-xs">Only admin can edit screen time data</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {isFullyBlocked && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
@@ -286,7 +312,7 @@ export default function SpellInput({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 pt-1">
+              {isAdmin && (<div className="grid grid-cols-2 gap-3 pt-1">
                 <motion.button whileTap={{ scale: disableEditing ? 1 : 0.97 }} onClick={requestSave}
                   disabled={disableEditing}
                   className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 transition-all duration-200 shadow-lg shadow-gray-900/15 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-900">
@@ -297,7 +323,7 @@ export default function SpellInput({
                   className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gray-100 text-gray-700 font-semibold text-sm hover:bg-gray-200 transition-all duration-200 border border-gray-200/50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gray-100">
                   <RotateCcw className="w-4 h-4" /> Reset
                 </motion.button>
-              </div>
+              </div>)}
             </>
           )}
 

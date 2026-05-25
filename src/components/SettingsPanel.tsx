@@ -4,7 +4,7 @@ import {
   X, Settings2, Clock, AlertTriangle, Shield, Database,
   Download, Upload, Trash2, RefreshCw, Cloud, Eye, EyeOff,
   Code2, RotateCcw, Save, CheckCircle2, AlertCircle, Wrench,
-  UserPlus, Edit3, ShieldCheck, ChevronDown,
+  UserPlus, Edit3, ShieldCheck, ChevronDown, Inbox, Check, XCircle, KeyRound,
 } from 'lucide-react';
 import type { AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
@@ -26,7 +26,7 @@ interface SettingsPanelProps {
   onReconfigureCloud: () => void;
 }
 
-type Tab = 'time' | 'security' | 'data' | 'cloud' | 'advanced';
+type Tab = 'time' | 'security' | 'requests' | 'data' | 'cloud' | 'advanced';
 type SecuritySection = 'passwords' | 'addUser' | 'changeUsername' | 'changeRole';
 
 export default function SettingsPanel({
@@ -35,7 +35,7 @@ export default function SettingsPanel({
 }: SettingsPanelProps) {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
-  const { isAdmin, changePassword, getAllUsers, addUser, changeUsername, changeUserRole } = useAuth();
+  const { isAdmin, changePassword, getAllUsers, getPendingResets, getAllResets, resolveReset, addUser, changeUsername, changeUserRole } = useAuth();
 
   const [activeTab, setActiveTab] = useState<Tab>('time');
   const [draft, setDraft] = useState<AppSettings>(settings);
@@ -72,17 +72,22 @@ export default function SettingsPanel({
   const [editRoleMessage, setEditRoleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const [showDebug, setShowDebug] = useState(false);
+  const [, setResetVersion] = useState(0);
+  const pendingResets = getPendingResets();
+  const allResets = getAllResets();
+  const [editPw, setEditPw] = useState<Record<string, string>>({});
   const [debugText, setDebugText] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const tabs: Array<{ id: Tab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }> = [
-    { id: 'time', label: 'Time', icon: Clock },
+    { id: 'time', label: 'Time', icon: Clock, adminOnly: true },
     { id: 'security', label: 'Security', icon: Shield, adminOnly: true },
+    { id: 'requests', label: 'Requests', icon: Inbox, adminOnly: true },
     { id: 'data', label: 'Data', icon: Database },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
-    { id: 'advanced', label: 'Advanced', icon: Wrench },
+    { id: 'advanced', label: 'Advanced', icon: Wrench, adminOnly: true },
   ];
 
   const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
@@ -619,6 +624,68 @@ export default function SettingsPanel({
         </motion.div>
       )}
 
+
+      {activeTab === 'requests' && isAdmin && (
+        <motion.div key="requests" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+          {pendingResets.length === 0 && (
+            <div className={`${cardCls} flex flex-col items-center py-8`}>
+              <Inbox className={`w-10 h-10 mb-3 ${isGlass ? 'text-gray-300' : 'text-[#ccc]'}`} />
+              <p className={`text-sm font-semibold ${isGlass ? 'text-gray-500' : 'text-[#999]'}`}>No pending requests</p>
+              <p className={`text-xs mt-1 ${isGlass ? 'text-gray-400' : 'text-[#bbb]'}`}>Password reset requests from users appear here</p>
+            </div>
+          )}
+
+          {pendingResets.map(req => (
+            <div key={req.id} className={cardCls}>
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-amber-500" />
+                  <div>
+                    <p className={`text-sm font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Password Reset</p>
+                    <p className={`text-[10px] ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>from {req.userDisplay} ({req.userKey}) • {new Date(req.timestamp).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Pending</span>
+              </div>
+
+              <div className={`rounded-lg p-3 text-xs space-y-2 mb-3 ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
+                <p className={isGlass ? 'text-gray-500' : 'text-[#666]'}>Desired password: <code className={`px-2 py-0.5 rounded text-xs font-mono ${isGlass ? 'bg-gray-100' : 'bg-[#f5f5f5]'}`}>{req.desiredPassword}</code></p>
+                <div>
+                  <label className={`block text-[10px] font-semibold mb-1 ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>Edit password (optional):</label>
+                  <input type="text" value={editPw[req.id] || ''} onChange={e => setEditPw(p => ({...p, [req.id]: e.target.value}))} placeholder="Leave empty to use their desired password" className={inputCls} />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button onClick={async () => { await resolveReset(req.id, 'approved', editPw[req.id] || undefined); setResetVersion(v => v + 1); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
+                  <Check className="w-3.5 h-3.5" /> Approve
+                </button>
+                <button onClick={async () => { await resolveReset(req.id, 'rejected'); setResetVersion(v => v + 1); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors">
+                  <XCircle className="w-3.5 h-3.5" /> Reject
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {allResets.filter(r => r.status !== 'pending').length > 0 && (
+            <div className={cardCls}>
+              <h3 className={`text-xs font-bold mb-2 ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>History</h3>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                {allResets.filter(r => r.status !== 'pending').slice(-15).reverse().map(r => (
+                  <div key={r.id} className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-3 h-3 text-amber-500" />
+                      <span className={isGlass ? 'text-gray-500' : 'text-[#666]'}>{r.userDisplay}</span>
+                    </div>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {activeTab === 'data' && (
         <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
           <button onClick={handleExport} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><Download className="w-4 h-4" /> Export Data as JSON</button>
@@ -659,7 +726,7 @@ export default function SettingsPanel({
             <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl max-h-[85vh] flex flex-col">
               <div className="flex items-center justify-between p-5 border-b border-[#e5e5e5]"><div className="flex items-center gap-2"><Settings2 className="w-5 h-5 text-[#0f0f0f]" /><h2 className="text-lg font-bold text-[#0f0f0f]">Settings</h2></div><button onClick={handleClose} className="text-[#999] hover:text-[#0f0f0f]"><X className="w-5 h-5" /></button></div>
-              <div className="flex border-b border-[#e5e5e5] overflow-x-auto">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-colors ${active ? 'text-[#0f0f0f] border-b-2 border-[#0f0f0f]' : 'text-[#999] hover:text-[#666]'}`}><Icon className="w-3.5 h-3.5" /> {t.label}</button>; })}</div>
+              <div className="flex border-b border-[#e5e5e5] overflow-x-auto">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-colors ${active ? 'text-[#0f0f0f] border-b-2 border-[#0f0f0f]' : 'text-[#999] hover:text-[#666]'}`}><Icon className="w-3.5 h-3.5" /> {t.label}{t.id === 'requests' && pendingResets.length > 0 && <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{pendingResets.length}</span>}</button>; })}</div>
               <div className="p-5 overflow-y-auto"><AnimatePresence mode="wait">{content}</AnimatePresence></div>
             </motion.div>
           </motion.div>
@@ -675,7 +742,7 @@ export default function SettingsPanel({
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/30 backdrop-blur-md" onClick={handleClose} />
           <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="relative w-full max-w-lg bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 max-h-[85vh] flex flex-col overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-gray-200/50"><div className="flex items-center gap-2.5"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-md shadow-gray-900/20"><Settings2 className="w-4 h-4 text-white" /></div><h2 className="text-lg font-bold text-gray-900">Settings</h2></div><button onClick={handleClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><X className="w-4 h-4 text-gray-500" /></button></div>
-            <div className="flex border-b border-gray-200/50 overflow-x-auto bg-gray-50/50">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-all ${active ? 'text-gray-900 border-b-2 border-gray-900 bg-white' : 'text-gray-500 hover:text-gray-700'}`}><Icon className="w-3.5 h-3.5" /> {t.label}</button>; })}</div>
+            <div className="flex border-b border-gray-200/50 overflow-x-auto bg-gray-50/50">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-all ${active ? 'text-gray-900 border-b-2 border-gray-900 bg-white' : 'text-gray-500 hover:text-gray-700'}`}><Icon className="w-3.5 h-3.5" /> {t.label}{t.id === 'requests' && pendingResets.length > 0 && <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{pendingResets.length}</span>}</button>; })}</div>
             <div className="p-5 overflow-y-auto"><AnimatePresence mode="wait">{content}</AnimatePresence></div>
           </motion.div>
         </motion.div>

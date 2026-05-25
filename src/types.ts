@@ -36,3 +36,21 @@ export interface AppState {
   currentYear: number;
   settings: AppSettings;
 }
+
+// ── Request System ──
+
+export type RequestType = 'password_reset';
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PasswordResetRequest {
+  id: string;
+  type: 'password_reset';
+  userKey: string;
+  userDisplay: string;
+  desiredPassword: string;
+  timestamp: string;
+  status: RequestStatus;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  adminNote?: string;
+}

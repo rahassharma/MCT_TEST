@@ -1,38 +1,51 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Monitor, Eye, EyeOff, LogIn, AlertCircle, User, Lock, Cloud } from 'lucide-react';
+import { Monitor, Eye, EyeOff, LogIn, AlertCircle, User, Lock, Cloud, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import { CLOUD_ENABLED } from '../db/supabase';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, submitPasswordReset } = useAuth();
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const cloudConfigured = CLOUD_ENABLED;
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  
   const [showPass, setShowPass] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Forgot password
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotUser, setForgotUser] = useState('');
+  const [forgotPw, setForgotPw] = useState('');
+  const [forgotError, setForgotError] = useState('');
+  const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  const handleForgotSubmit = () => {
+    setForgotError('');
+    const key = forgotUser.toLowerCase().trim();
+    if (!key) { setForgotError('Enter your username'); return; }
+    if (!forgotPw.trim() || forgotPw.length < 6) { setForgotError('Enter a password (min 6 chars)'); return; }
+    const result = submitPasswordReset(key, forgotPw);
+    if (result.success) { setForgotSuccess(true); }
+    else { setForgotError(result.error || 'Failed'); }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim() || !password.trim() || !confirm.trim()) {
+    if (!username.trim() || !password.trim()) {
       setError('Please fill in all fields');
-      return;
-    }
-    if (password !== confirm) {
-      setError('Passwords do not match');
       return;
     }
     setLoading(true);
     setError('');
-    const result = await login(username, password, confirm);
+    const result = await login(username, password, password);
     if (!result.success) {
       setError(result.error || 'Login failed');
     }
@@ -63,13 +76,29 @@ export default function LoginPage() {
               <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">Password</label>
               <div className="relative"><Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999]" /><input type={showPass ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Enter password" className="w-full pl-11 pr-12 py-3 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all placeholder:text-[#bbb]" /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#999] hover:text-[#666]">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">Confirm Password</label>
-              <div className="relative"><Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999]" /><input type={showConfirm ? 'text' : 'password'} value={confirm} onChange={e => { setConfirm(e.target.value); setError(''); }} placeholder="Re-enter password" className="w-full pl-11 pr-12 py-3 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all placeholder:text-[#bbb]" /><button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#999] hover:text-[#666]">{showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
-            </div>
             <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center gap-2 text-[#ef4444] text-sm font-medium bg-[#fee2e2] border border-[#ef4444]/20 rounded-lg px-4 py-3"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
             <button type="submit" disabled={loading} className="w-full py-3 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" /> Sign In</>}</button>
+            <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-xs text-[#999] hover:text-[#666] transition-colors py-2 flex items-center justify-center gap-1.5 mt-2"><KeyRound className="w-3 h-3" /> Forgot Password?</button>
           </form>
+
+          {showForgot && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-[#fafafa] border border-[#e5e5e5] rounded-xl p-6">
+              <button onClick={() => { setShowForgot(false); setForgotSuccess(false); setForgotError(''); }} className="flex items-center gap-2 text-sm text-[#666] hover:text-[#0f0f0f] mb-4"><ArrowLeft className="w-4 h-4" /> Back</button>
+              <div className="flex items-center gap-2 mb-4"><KeyRound className="w-5 h-5 text-[#0f0f0f]" /><h3 className="text-lg font-bold text-[#0f0f0f]">Forgot Password</h3></div>
+              {forgotSuccess ? (
+                <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg p-4"><CheckCircle2 className="w-5 h-5" /><div><p className="font-semibold text-sm">Request submitted!</p><p className="text-xs mt-0.5">Ask admin to check Requests tab in Settings.</p></div></div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-[#666]">Enter your username and your desired new password. Admin will approve it.</p>
+                  <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder="Your username" className="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg bg-white text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f]" />
+                  <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg bg-white text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f]" />
+                  {forgotError && <p className="text-xs text-red-500 font-medium flex items-center gap-1.5"><AlertCircle className="w-3 h-3" />{forgotError}</p>}
+                  <button onClick={handleForgotSubmit} className="w-full py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333]">Submit Reset Request</button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           <p className="text-center text-xs text-[#999] mt-8">{cloudConfigured ? 'Passwords and data sync through the cloud' : 'Configure cloud to sync login across devices'}</p>
         </motion.div>
       </div>
@@ -98,13 +127,29 @@ export default function LoginPage() {
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>
               <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type={showPass ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Enter password" className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 focus:bg-white transition-all placeholder:text-gray-300" /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Confirm Password</label>
-              <div className="relative"><Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type={showConfirm ? 'text' : 'password'} value={confirm} onChange={e => { setConfirm(e.target.value); setError(''); }} placeholder="Re-enter password" className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 focus:bg-white transition-all placeholder:text-gray-300" /><button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
-            </div>
             <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }} exit={{ opacity: 0, y: -8, height: 0 }} className="flex items-center gap-2.5 text-red-600 text-sm font-medium bg-red-50 rounded-2xl px-4 py-3 border border-red-200/50"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
             <motion.button whileTap={{ scale: 0.97 }} type="submit" disabled={loading} className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 transition-all shadow-lg shadow-gray-900/15 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" /> Sign In</>}</motion.button>
+            <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-2 flex items-center justify-center gap-1.5 mt-1"><KeyRound className="w-3 h-3" /> Forgot Password?</button>
           </form>
+
+          {showForgot && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-5 bg-white/50 backdrop-blur-xl border border-gray-200/50 rounded-2xl p-6">
+              <button onClick={() => { setShowForgot(false); setForgotSuccess(false); setForgotError(''); }} className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-700 mb-4"><ArrowLeft className="w-4 h-4" /> Back</button>
+              <div className="flex items-center gap-2 mb-4"><KeyRound className="w-5 h-5 text-gray-900" /><h3 className="text-lg font-bold text-gray-900">Forgot Password</h3></div>
+              {forgotSuccess ? (
+                <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-2xl p-5"><CheckCircle2 className="w-6 h-6 text-green-500" /><div><p className="font-semibold text-sm text-green-700">Request submitted!</p><p className="text-xs text-green-600 mt-0.5">Ask admin to check Requests tab.</p></div></div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-500">Enter your username and desired new password. Admin will approve.</p>
+                  <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder="Your username" className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 placeholder:text-gray-300" />
+                  <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 placeholder:text-gray-300" />
+                  {forgotError && <p className="text-xs text-red-500 font-medium flex items-center gap-1.5"><AlertCircle className="w-3 h-3" />{forgotError}</p>}
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleForgotSubmit} className="w-full py-3.5 rounded-2xl bg-gray-900 text-white font-semibold text-sm hover:bg-gray-800 shadow-lg shadow-gray-900/15"><KeyRound className="w-4 h-4 inline mr-2" />Submit Reset Request</motion.button>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           <p className="text-center text-xs text-gray-400 font-medium mt-6">{cloudConfigured ? 'Passwords and data sync through the cloud' : 'Configure cloud to sync login across devices'}</p>
         </div>
       </motion.div>
