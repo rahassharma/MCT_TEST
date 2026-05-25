@@ -6,9 +6,9 @@ import {
   Code2, RotateCcw, Save, CheckCircle2, AlertCircle, Wrench,
   UserPlus, ChevronDown, Inbox, Check,
   XCircle, KeyRound, MessageSquare, Bell, UserMinus, Send,
-  Info, Users,
+  Info, Users, Smartphone,
 } from 'lucide-react';
-import type { AppSettings, RecommendUserRequest, SuggestionRequest, PasswordResetRequest } from '../types';
+import type { AppSettings } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
@@ -40,8 +40,8 @@ export default function SettingsPanel({
   const isGlass = theme === 'glass';
   const {
     isAdmin, user, changePassword, getAllUsers, addUser, changeUsername, changeUserRole, removeUser,
-    getPendingRequests, getAllRequests, getUserRequests, resolveRequest,
-    submitRecommendUser, submitSuggestion,
+    getPendingRequests, getAllRequests, getUserRequests, submitRequest, updateRequestStatus, appealRequest,
+    
     sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
     dataVersion,
   } = useAuth();
@@ -148,6 +148,7 @@ export default function SettingsPanel({
           <Field label="Penalty Multiplier" hint="Excess × ratio" icon={AlertTriangle}><input type="number" min={0} max={10} step={0.1} value={draft.penaltyRatio} onChange={e => setDraft({ ...draft, penaltyRatio: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} /></Field>
           <Field label="Block Threshold" hint="Penalty >= this = full block" icon={AlertTriangle}><input type="number" min={1} max={480} value={draft.fullBlockThreshold} onChange={e => setDraft({ ...draft, fullBlockThreshold: Math.max(1, parseInt(e.target.value) || 1) })} className={inputCls} /></Field>
           <Field label="Carry Forward" hint="Carry penalty to next days" icon={AlertTriangle}><button onClick={() => setDraft({ ...draft, carryForwardEnabled: !draft.carryForwardEnabled })} className={`relative w-12 h-7 rounded-full transition-colors ${draft.carryForwardEnabled ? 'bg-green-500' : 'bg-gray-300'}`}><motion.div animate={{ x: draft.carryForwardEnabled ? 22 : 2 }} className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md" /></button></Field>
+          <Field label="Mobile Sync" hint="Fetch screen time from phone" icon={Smartphone}><button onClick={() => setDraft({ ...draft, mobileSync: !draft.mobileSync })} className={`relative w-12 h-7 rounded-full transition-colors ${draft.mobileSync ? 'bg-purple-500' : 'bg-gray-300'}`}><motion.div animate={{ x: draft.mobileSync ? 22 : 2 }} className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md" /></button></Field>
           <div className="flex gap-2 pt-2">
             <button onClick={handleSave} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${btnPrimary}`}>{saved ? <><CheckCircle2 className="w-4 h-4" /> Saved</> : <><Save className="w-4 h-4" /> Save</>}</button>
             <button onClick={handleResetSettings} className={`py-2.5 px-4 rounded-lg font-semibold text-sm ${btnSecondary}`}><RotateCcw className="w-4 h-4" /></button>
@@ -220,21 +221,29 @@ export default function SettingsPanel({
                 {req.type === 'password_reset' && <KeyRound className="w-4 h-4 text-amber-500" />}
                 {req.type === 'recommend_user' && <Users className="w-4 h-4 text-blue-500" />}
                 {req.type === 'suggestion' && <MessageSquare className="w-4 h-4 text-purple-500" />}
-                <div><p className={`text-sm font-bold ${headCls}`}>{req.type === 'password_reset' ? 'Password Reset' : req.type === 'recommend_user' ? 'New User Recommendation' : 'Suggestion'}</p><p className={`text-[10px] ${labelCls}`}>{req.userDisplay} • {fmtTime(req.timestamp)}</p></div>
+                {req.type === 'appeal' && <AlertCircle className="w-4 h-4 text-red-500" />}
+                <div><p className={`text-sm font-bold ${headCls}`}>{req.type === 'password_reset' ? 'Password Reset' : req.type === 'recommend_user' ? 'New User Recommendation' : req.type === 'appeal' ? '🔴 Account Appeal' : 'Suggestion'}</p><p className={`text-[10px] ${labelCls}`}>{req.userDisplay} • {fmtTime(req.timestamp)}</p></div>
               </div>
               <div className={`rounded-lg p-3 text-xs mb-3 ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
-                {req.type === 'password_reset' && <><p className={labelCls}>Desired password: <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">{(req as PasswordResetRequest).desiredPassword}</code></p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Edit password:</label><input value={editPw[req.id] || ''} onChange={e => setEditPw(p => ({...p, [req.id]: e.target.value}))} placeholder="Leave empty for their password" className={inputCls + ' mt-1'} /></div></>}
-                {req.type === 'recommend_user' && <><p className={labelCls}>Key: <strong className={headCls}>{(req as RecommendUserRequest).recommendedKey}</strong></p><p className={labelCls}>Name: <strong className={headCls}>{(req as RecommendUserRequest).recommendedDisplay}</strong></p></>}
-                {req.type === 'suggestion' && <><p className={headCls}>{(req as SuggestionRequest).message}</p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Reply:</label><input value={editReply[req.id] || ''} onChange={e => setEditReply(p => ({...p, [req.id]: e.target.value}))} placeholder="Optional reply" className={inputCls + ' mt-1'} /></div></>}
+                {req.type === 'password_reset' && <><p className={labelCls}>Desired password: <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">{req.desiredPassword}</code></p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Edit password:</label><input value={editPw[req.id] || ''} onChange={e => setEditPw(p => ({...p, [req.id]: e.target.value}))} placeholder="Leave empty for their password" className={inputCls + ' mt-1'} /></div></>}
+                {req.type === 'recommend_user' && <><p className={labelCls}>Key: <strong className={headCls}>{req.recommendedKey}</strong></p><p className={labelCls}>Name: <strong className={headCls}>{req.recommendedDisplay}</strong></p></>}
+                {req.type === 'appeal' && <><p className={`${headCls} font-semibold`}>User wants their account reinstated:</p><p className={headCls + ' mt-1'}>{req.message}</p><p className={`text-[10px] mt-2 ${labelCls}`}>Approving will reinstate the user's account</p></>}
+                {req.type === 'suggestion' && <><p className={headCls}>{req.message}</p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Reply:</label><input value={editReply[req.id] || ''} onChange={e => setEditReply(p => ({...p, [req.id]: e.target.value}))} placeholder="Optional reply" className={inputCls + ' mt-1'} /></div></>}
               </div>
-              <div className="flex gap-2">
-                <button onClick={async () => { await resolveRequest(req.id, 'approved', { finalPassword: editPw[req.id], adminReply: editReply[req.id] }); bump(); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"><Check className="w-3.5 h-3.5" /> Approve</button>
-                <button onClick={async () => { await resolveRequest(req.id, 'rejected'); bump(); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"><XCircle className="w-3.5 h-3.5" /> Reject</button>
+              <div className="space-y-2">
+                <div className={`text-[10px] font-bold uppercase tracking-wider mb-1 ${labelCls}`}>Status: <span className={req.status === 'submitted' ? 'text-amber-600' : req.status === 'received' ? 'text-blue-600' : req.status === 'reviewing' ? 'text-purple-600' : req.status === 'appealed' ? 'text-orange-600' : 'text-gray-500'}>{req.status}</span></div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {req.status === 'submitted' && <button onClick={async () => { await updateRequestStatus(req.id, 'received', 'Received by admin'); bump(); }} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">📥 Receive</button>}
+                  {(req.status === 'received' || req.status === 'appealed') && <button onClick={async () => { await updateRequestStatus(req.id, 'reviewing', 'Under review'); bump(); }} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200">🔍 Review</button>}
+                  {req.status === 'reviewing' && <><button onClick={async () => { await updateRequestStatus(req.id, 'approved', editReply[req.id] || undefined, editPw[req.id] ? { finalPassword: editPw[req.id] } : undefined); bump(); }} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"><Check className="w-3 h-3 inline" /> {req.type === 'appeal' ? 'Reinstate' : 'Approve'}</button><button onClick={async () => { const note = prompt('Reason for rejection:'); await updateRequestStatus(req.id, 'rejected', note || undefined); bump(); }} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"><XCircle className="w-3 h-3 inline" /> Reject</button><button onClick={async () => { const note = prompt('What changes needed?'); if (note) { await updateRequestStatus(req.id, 'editing', note); bump(); } }} className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200">✏️ Edit</button></>}
+                  {req.status === 'editing' && <p className={`text-xs ${labelCls}`}>Waiting for user to resubmit...</p>}
+                </div>
+                {req.history && req.history.length > 0 && <div className={`mt-2 text-[10px] space-y-0.5 ${labelCls}`}>{req.history.map((h, i) => <div key={i}>• {h.status} — {new Date(h.timestamp).toLocaleString()}{h.note ? `: ${h.note}` : ''}</div>)}</div>}
               </div>
             </div>
           ))}
-          {getAllRequests().filter(r => r.status !== 'pending').length > 0 && (
-            <div className={cardCls}><h3 className={`text-xs font-bold mb-2 ${headCls}`}>History</h3><div className="space-y-1 max-h-40 overflow-y-auto">{getAllRequests().filter(r => r.status !== 'pending').slice(-15).reverse().map(r => (<div key={r.id} className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] ${isGlass ? 'bg-white/50' : 'bg-white'}`}><span className={labelCls}>{r.userDisplay} — {r.type.replace('_', ' ')}</span><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span></div>))}</div></div>
+          {getAllRequests().filter(r => !['submitted','received','reviewing','editing','appealed'].includes(r.status)).length > 0 && (
+            <div className={cardCls}><h3 className={`text-xs font-bold mb-2 ${headCls}`}>History</h3><div className="space-y-1 max-h-40 overflow-y-auto">{getAllRequests().filter(r => !['submitted','received','reviewing','editing','appealed'].includes(r.status)).slice(-15).reverse().map(r => (<div key={r.id} className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] ${isGlass ? 'bg-white/50' : 'bg-white'}`}><span className={labelCls}>{r.userDisplay} — {r.type.replace('_', ' ')}</span><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span></div>))}</div></div>
           )}
         </motion.div>
       )}
@@ -282,6 +291,7 @@ export default function SettingsPanel({
               <div className="flex justify-between"><span className={labelCls}>Penalty Multiplier</span><span className={`font-bold ${headCls}`}>{settings.penaltyRatio}×</span></div>
               <div className="flex justify-between"><span className={labelCls}>Full Block Threshold</span><span className={`font-bold ${headCls}`}>{settings.fullBlockThreshold} min</span></div>
               <div className="flex justify-between"><span className={labelCls}>Carry Forward</span><span className={`font-bold ${headCls}`}>{settings.carryForwardEnabled ? '✅ On' : '❌ Off'}</span></div>
+              <div className="flex justify-between"><span className={labelCls}>Mobile Sync</span><span className={`font-bold ${headCls}`}>{settings.mobileSync ? '📱 On' : '❌ Off'}</span></div>
             </div>
           </div>
           <p className={`text-xs ${labelCls} text-center`}>Only admin can change these settings</p>
@@ -297,7 +307,7 @@ export default function SettingsPanel({
               <input placeholder="Login key (e.g. john)" value={recKey} onChange={e => setRecKey(e.target.value)} className={inputCls} />
               <input placeholder="Display name" value={recDisplay} onChange={e => setRecDisplay(e.target.value)} className={inputCls} />
               <PwInput label="" value={recPw} onChange={setRecPw} show={showPasswords['rec']} onToggle={() => setShowPasswords(p => ({...p, 'rec': !p['rec']}))} />
-              <button onClick={async () => { const r = await submitRecommendUser(recKey, recDisplay, recPw); setRecMsg(r.success ? { type:'success', text:'Recommendation sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRecKey(''); setRecDisplay(''); setRecPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Recommend</button>
+              <button onClick={async () => { const r = await submitRequest({ type: 'recommend_user', recommendedKey: recKey, recommendedDisplay: recDisplay, recommendedPassword: recPw }); setRecMsg(r.success ? { type:'success', text:`Sent! Tracking: ${r.trackingNo}` } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRecKey(''); setRecDisplay(''); setRecPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Recommend</button>
             </div>
             {recMsg && <div className="mt-2"><Msg m={recMsg} /></div>}
           </div>
@@ -305,16 +315,21 @@ export default function SettingsPanel({
           {/* My requests history */}
           <div className={cardCls}>
             <h3 className={`text-xs font-bold mb-2 ${headCls}`}>My Requests</h3>
+            {/* Role upgrade button */}
+            <button onClick={async () => { const r = await submitRequest({ type: 'role_upgrade', message: 'Requesting admin access', desiredRole: 'admin' }); if (r.success) bump(); }} className={`w-full py-2 rounded-lg text-xs font-semibold mb-3 ${btnSecondary}`}>🛡️ Request Role Upgrade</button>
             {userReqs.length === 0 && <p className={`text-xs ${labelCls}`}>No requests yet</p>}
             <div className="space-y-1.5 max-h-60 overflow-y-auto">
               {userReqs.slice().reverse().map(r => (
-                <div key={r.id} className={`px-3 py-2 rounded-lg text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
+                <div key={r.id} className={`px-3 py-3 rounded-lg text-xs ${isGlass ? 'bg-white/50' : 'bg-white'} space-y-1.5`}>
                   <div className="flex items-center justify-between">
-                    <span className={`font-semibold ${headCls}`}>{r.type === 'password_reset' ? '🔑 Password Reset' : r.type === 'recommend_user' ? '👤 Recommend User' : '💡 Suggestion'}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'pending' ? 'bg-amber-100 text-amber-700' : r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span>
+                    <span className={`font-semibold ${headCls}`}>{r.type === 'password_reset' ? '🔑 Password' : r.type === 'recommend_user' ? '👤 New User' : r.type === 'appeal' ? '🔴 Appeal' : r.type === 'role_upgrade' ? '🛡️ Role Upgrade' : '💡 Suggestion'}</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'submitted' ? 'bg-gray-100 text-gray-600' : r.status === 'received' ? 'bg-blue-100 text-blue-700' : r.status === 'reviewing' ? 'bg-purple-100 text-purple-700' : r.status === 'editing' ? 'bg-amber-100 text-amber-700' : r.status === 'approved' ? 'bg-green-100 text-green-700' : r.status === 'rejected' ? 'bg-red-100 text-red-600' : r.status === 'appealed' ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>{r.status}</span>
                   </div>
-                  <p className={`text-[10px] mt-0.5 ${labelCls}`}>{fmtTime(r.timestamp)}</p>
-                  {r.type === 'suggestion' && (r as SuggestionRequest).adminReply && <p className="mt-1 text-xs text-blue-600 font-medium">Admin: {(r as SuggestionRequest).adminReply}</p>}
+                  <p className={`text-[10px] ${labelCls}`}>#{r.trackingNo} • {fmtTime(r.timestamp)}</p>
+                  {r.adminNote && <p className="text-xs text-blue-600 font-medium">Admin: {r.adminNote}</p>}
+                  {r.editRequest && r.status === 'editing' && <p className="text-xs text-amber-600 font-medium">Edit needed: {r.editRequest}</p>}
+                  {r.status === 'rejected' && <button onClick={async () => { const msg = prompt('Your appeal message:'); if (msg) { await appealRequest(r.id, msg); bump(); } }} className="mt-1 w-full py-1.5 rounded text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100">⚖️ Appeal Decision</button>}
+                  {r.history && <div className={`text-[9px] space-y-0.5 ${labelCls} mt-1`}>{r.history.slice(-3).map((h, i) => <div key={i}>• {h.status}{h.note ? `: ${h.note}` : ''}</div>)}</div>}
                 </div>
               ))}
             </div>
@@ -328,7 +343,7 @@ export default function SettingsPanel({
             <h3 className={`text-sm font-bold mb-2 ${headCls}`}><MessageSquare className="w-4 h-4 inline mr-1" />Send a Suggestion</h3>
             <div className="space-y-2">
               <textarea value={sugText} onChange={e => setSugText(e.target.value)} placeholder="Your suggestion or feedback..." rows={4} className={inputCls} />
-              <button onClick={async () => { const r = await submitSuggestion(sugText); setSugMsg(r.success ? { type:'success', text:'Sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setSugText(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Submit</button>
+              <button onClick={async () => { const r = await submitRequest({ type: 'suggestion', message: sugText }); setSugMsg(r.success ? { type:'success', text:`Sent! Tracking: ${r.trackingNo}` } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setSugText(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Submit</button>
             </div>
             {sugMsg && <div className="mt-2"><Msg m={sugMsg} /></div>}
           </div>

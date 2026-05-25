@@ -6,6 +6,7 @@ import { fetchDeviceUsage, type DeviceUsageRow } from '../db/sync';
 
 interface DeviceUsagePanelProps {
   userKey: string | null;
+  mobileSync: boolean;
 }
 
 const APP_NAMES: Record<string, string> = {
@@ -28,7 +29,7 @@ function friendlyName(pkg: string): string {
   return last.charAt(0).toUpperCase() + last.slice(1);
 }
 
-export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
+export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePanelProps) {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
 
@@ -37,7 +38,7 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
 
   const loadData = async () => {
-    if (!userKey) return;
+    if (!userKey || !mobileSync) return;
     setLoading(true);
     try {
       const rows = await fetchDeviceUsage(userKey);
@@ -54,7 +55,7 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
     loadData();
     const interval = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [userKey]);
+  }, [userKey, mobileSync]);
 
   const todayKey = new Date().toISOString().split('T')[0];
   const todayData = data.find(d => d.date === todayKey);
@@ -88,7 +89,15 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
           </button>
         </div>
 
-        {!hasData && (
+        {!mobileSync && (
+          <div className="text-center py-8">
+            <Smartphone className="w-8 h-8 text-[#ccc] mx-auto mb-3" />
+            <p className="text-sm font-semibold text-[#999]">Mobile Sync is OFF</p>
+            <p className="text-xs text-[#bbb] mt-1">Admin can enable it in Settings → Time → Mobile Sync</p>
+          </div>
+        )}
+
+        {mobileSync && !hasData && (
           <div className="text-center py-8">
             <WifiOff className="w-8 h-8 text-[#ccc] mx-auto mb-3" />
             <p className="text-sm text-[#999]">No device data yet</p>
@@ -180,7 +189,15 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
         </button>
       </div>
 
-      {!hasData && (
+      {!mobileSync && (
+        <div className="text-center py-10">
+          <Smartphone className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-sm font-semibold text-gray-500">Mobile Sync is OFF</p>
+          <p className="text-xs text-gray-400 mt-1">Admin can enable it in Settings → Time</p>
+        </div>
+      )}
+
+      {mobileSync && !hasData && (
         <div className="text-center py-10">
           <WifiOff className="w-10 h-10 text-gray-300 mx-auto mb-3" />
           <p className="text-sm font-semibold text-gray-500">No device data yet</p>

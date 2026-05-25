@@ -140,7 +140,7 @@ function Dashboard() {
                 onTimePct={behaviorScore.onTimePct}
                 avgPenalty={behaviorScore.avgPenalty}
               />
-              <DeviceUsagePanel userKey={userKey} />
+              <DeviceUsagePanel userKey={userKey} mobileSync={state.settings.mobileSync ?? false} />
             </div>
           </div>
 
@@ -274,7 +274,7 @@ function Dashboard() {
               onTimePct={behaviorScore.onTimePct}
               avgPenalty={behaviorScore.avgPenalty}
             />
-              <DeviceUsagePanel userKey={userKey} />
+              <DeviceUsagePanel userKey={userKey} mobileSync={state.settings.mobileSync ?? false} />
           </div>
         </div>
 
@@ -314,7 +314,7 @@ function Dashboard() {
 }
 
 function DeletedScreen() {
-  const { deletedMessage, submitAppeal, logout } = useAuth();
+  const { deletedMessage, submitRequest, logout } = useAuth();
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const [appeal, setAppeal] = useState('');
@@ -343,7 +343,7 @@ function DeletedScreen() {
             <button
               onClick={() => {
                 if (appeal.trim()) {
-                  submitAppeal(appeal);
+                  submitRequest({ type: 'appeal', message: appeal });
                   setSent(true);
                 }
               }}

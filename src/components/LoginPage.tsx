@@ -6,8 +6,11 @@ import { useTheme } from '../ThemeContext';
 import ThemeToggle from './ThemeToggle';
 import { CLOUD_ENABLED } from '../db/supabase';
 
+function loadPw() { try { const s = localStorage.getItem('screentime_passwords'); const d: Record<string,any> = { admin: { display: 'Rahas' }, rahas: { display: 'Rahas Sharma' } }; if (s) return { ...d, ...JSON.parse(s) }; return d; } catch { return {}; } }
+const loadPasswords = loadPw;
+
 export default function LoginPage() {
-  const { login, submitPasswordReset } = useAuth();
+  const { login, submitRequest } = useAuth();
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const cloudConfigured = CLOUD_ENABLED;
@@ -32,7 +35,7 @@ export default function LoginPage() {
     const key = forgotUser.toLowerCase().trim();
     if (!key) { setForgotError('Enter your username'); return; }
     if (!forgotPw.trim() || forgotPw.length < 6) { setForgotError('Enter a password (min 6 chars)'); return; }
-    const result = await submitPasswordReset(key, forgotPw);
+    const p = loadPasswords(); const result = await submitRequest({ type: 'password_reset', userKey: key, userDisplay: p[key]?.display || key, desiredPassword: forgotPw });
     if (result.success) { setForgotSuccess(true); }
     else { setForgotError(result.error || 'Failed'); }
   };
