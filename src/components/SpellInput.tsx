@@ -119,13 +119,34 @@ export default function SpellInput({
 
           {futureBannerClassic}
 
-          {!isAdmin && !isFutureDate && !isFullyBlocked && (
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-5 flex items-center gap-3">
-              <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-semibold text-amber-700">View Only</p>
-                <p className="text-xs text-amber-600">Only admin can edit screen time data</p>
+          {!isAdmin && (
+            <div className="mb-5 space-y-3">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-700">View Only</p>
+                  <p className="text-xs text-amber-600">Data entered by admin</p>
+                </div>
               </div>
+              {total > 0 && (
+                <div className="bg-[#f5f5f5] border border-[#e5e5e5] rounded-xl p-4">
+                  <div className="grid grid-cols-3 gap-3 text-center mb-3">
+                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 1</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell1}</p><p className="text-[10px] text-[#999]">min</p></div>
+                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 2</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell2}</p><p className="text-[10px] text-[#999]">min</p></div>
+                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 3</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell3}</p><p className="text-[10px] text-[#999]">min</p></div>
+                  </div>
+                  <div className={`text-center py-2 rounded-lg ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                    <span className="text-sm font-bold">{total}</span><span className="text-xs"> / {effectiveLimit} min</span>
+                    {total > effectiveLimit && <span className="text-xs ml-2">⚠️ Over limit by {total - effectiveLimit} min</span>}
+                    {total <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - total} min remaining</span>}
+                  </div>
+                </div>
+              )}
+              {total === 0 && !isFutureDate && (
+                <div className="text-center py-4 bg-[#fafafa] border border-[#e5e5e5] rounded-xl">
+                  <p className="text-sm text-[#999]">No data entered for this date yet</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -232,18 +253,37 @@ export default function SpellInput({
 
         {futureBannerGlass}
 
-        {!isAdmin && !isFutureDate && !isFullyBlocked && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mx-6 md:mx-8 mt-4">
+        {!isAdmin && (
+          <div className="mx-6 md:mx-8 mt-4 space-y-3">
             <div className="bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Lock className="w-4 h-4 text-white" />
               </div>
               <div>
                 <p className="text-white text-sm font-semibold">View Only</p>
-                <p className="text-white/70 text-xs">Only admin can edit screen time data</p>
+                <p className="text-white/70 text-xs">Data entered by admin</p>
               </div>
             </div>
-          </motion.div>
+            {total > 0 && (
+              <div className="glass-card p-4">
+                <div className="grid grid-cols-3 gap-3 text-center mb-3">
+                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 1</p><p className="text-xl font-bold text-gray-900">{dailyData.spell1}</p><p className="text-[10px] text-gray-400">min</p></div>
+                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 2</p><p className="text-xl font-bold text-gray-900">{dailyData.spell2}</p><p className="text-[10px] text-gray-400">min</p></div>
+                  <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 3</p><p className="text-xl font-bold text-gray-900">{dailyData.spell3}</p><p className="text-[10px] text-gray-400">min</p></div>
+                </div>
+                <div className={`text-center py-2 rounded-xl ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                  <span className="text-sm font-bold">{total}</span><span className="text-xs"> / {effectiveLimit} min</span>
+                  {total > effectiveLimit && <span className="text-xs ml-2">⚠️ Over by {total - effectiveLimit}</span>}
+                  {total <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - total} left</span>}
+                </div>
+              </div>
+            )}
+            {total === 0 && !isFutureDate && (
+              <div className="text-center py-4 glass-card">
+                <p className="text-sm text-gray-400">No data entered for this date yet</p>
+              </div>
+            )}
+          </div>
         )}
 
         {isFullyBlocked && (

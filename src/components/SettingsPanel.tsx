@@ -14,6 +14,8 @@ import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
 import type { UserRole } from '../AuthContext';
 import { CLOUD_ENABLED } from '../db/supabase';
+import { saveCloudRequest } from '../db/sync';
+import { isSupabaseConfigured } from '../db/config';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -52,6 +54,7 @@ export default function SettingsPanel({
   const [saved, setSaved] = useState(false);
   const [securitySection, setSecuritySection] = useState<SecuritySection>('passwords');
   const [ver, setVer] = useState(0);
+  const cloud = isSupabaseConfigured();
   const bump = () => setVer(v => v + 1);
 
   // Password states
@@ -81,7 +84,8 @@ export default function SettingsPanel({
   const [recPw, setRecPw] = useState(''); const [recMsg, setRecMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Suggestion states
-  const [sugText, setSugText] = useState(''); const [sugMsg, setSugMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [sugText, setSugText] = useState('');
+  const [editInputs, setEditInputs] = useState<Record<string, string>>({}); const [sugMsg, setSugMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Notification states
   const [notifTarget, setNotifTarget] = useState('all');
@@ -327,7 +331,36 @@ export default function SettingsPanel({
                   </div>
                   <p className={`text-[10px] ${labelCls}`}>#{r.trackingNo} • {fmtTime(r.timestamp)}</p>
                   {r.adminNote && <p className="text-xs text-blue-600 font-medium">Admin: {r.adminNote}</p>}
-                  {r.editRequest && r.status === 'editing' && <p className="text-xs text-amber-600 font-medium">Edit needed: {r.editRequest}</p>}
+                  {r.editRequest && r.status === 'editing' && (
+                    <div className="space-y-2 mt-1">
+                      <div className={`px-3 py-2 rounded-lg text-xs ${isGlass ? 'bg-amber-50 border border-amber-200' : 'bg-amber-50 border border-amber-200'}`}>
+                        <p className="text-amber-700 font-semibold">✏️ Admin requested changes:</p>
+                        <p className="text-amber-600 mt-0.5">{r.editRequest}</p>
+                      </div>
+                      <input
+                        placeholder={r.type === 'password_reset' ? 'Updated password...' : r.type === 'suggestion' ? 'Updated message...' : 'Your updated response...'}
+                        value={editInputs[r.id] || ''}
+                        onChange={e => setEditInputs(p => ({...p, [r.id]: e.target.value}))}
+                        className={inputCls}
+                      />
+                      <button onClick={async () => {
+                        const val = editInputs[r.id];
+                        if (!val?.trim()) return;
+                        // Update the request with new data and resubmit
+                        if (r.type === 'password_reset') r.desiredPassword = val;
+                        else if (r.type === 'suggestion') r.message = val;
+                        else if (r.type === 'recommend_user') r.recommendedPassword = val;
+                        r.status = 'submitted';
+                        r.editRequest = undefined;
+                        r.history.push({ status: 'submitted', timestamp: new Date().toISOString(), by: user?.key || '', note: 'Resubmitted after edit' });
+                        if (cloud) await saveCloudRequest(r);
+                        setEditInputs(p => ({...p, [r.id]: ''}));
+                        bump();
+                      }} className={`w-full py-1.5 rounded-lg text-[11px] font-semibold ${btnPrimary}`}>
+                        📤 Resubmit
+                      </button>
+                    </div>
+                  )}
                   {r.status === 'rejected' && <button onClick={async () => { const msg = prompt('Your appeal message:'); if (msg) { await appealRequest(r.id, msg); bump(); } }} className="mt-1 w-full py-1.5 rounded text-[11px] font-semibold bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100">⚖️ Appeal Decision</button>}
                   {r.history && <div className={`text-[9px] space-y-0.5 ${labelCls} mt-1`}>{r.history.slice(-3).map((h, i) => <div key={i}>• {h.status}{h.note ? `: ${h.note}` : ''}</div>)}</div>}
                 </div>
