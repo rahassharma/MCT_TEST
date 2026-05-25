@@ -5,9 +5,9 @@ export interface DailyData {
 }
 
 export interface AppSettings {
-  maxTime: number;           // Default daily limit (minutes)
-  penaltyRatio: number;      // Multiplier for excess time
-  fullBlockThreshold: number; // Penalty >= this triggers full block
+  maxTime: number;
+  penaltyRatio: number;
+  fullBlockThreshold: number;
   carryForwardEnabled: boolean;
 }
 
@@ -39,7 +39,7 @@ export interface AppState {
 
 // ── Request System ──
 
-export type RequestType = 'password_reset';
+export type RequestType = 'password_reset' | 'recommend_user' | 'suggestion';
 export type RequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface PasswordResetRequest {
@@ -52,5 +52,45 @@ export interface PasswordResetRequest {
   status: RequestStatus;
   resolvedAt?: string;
   resolvedBy?: string;
-  adminNote?: string;
+}
+
+export interface RecommendUserRequest {
+  id: string;
+  type: 'recommend_user';
+  userKey: string;          // who recommended
+  userDisplay: string;
+  recommendedKey: string;   // new user login key
+  recommendedDisplay: string; // new user display name
+  recommendedPassword: string;
+  timestamp: string;
+  status: RequestStatus;
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export interface SuggestionRequest {
+  id: string;
+  type: 'suggestion';
+  userKey: string;
+  userDisplay: string;
+  message: string;
+  timestamp: string;
+  status: RequestStatus;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  adminReply?: string;
+}
+
+export type UserRequest = PasswordResetRequest | RecommendUserRequest | SuggestionRequest;
+
+// ── Notifications ──
+
+export interface AdminNotification {
+  id: string;
+  targetUserKey: string;   // who receives it ('all' for everyone)
+  fromAdmin: string;
+  message: string;
+  type: 'warning' | 'info' | 'success';
+  timestamp: string;
+  readBy: string[];        // user keys who have read it
 }

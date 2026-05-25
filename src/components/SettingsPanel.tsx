@@ -4,9 +4,11 @@ import {
   X, Settings2, Clock, AlertTriangle, Shield, Database,
   Download, Upload, Trash2, RefreshCw, Cloud, Eye, EyeOff,
   Code2, RotateCcw, Save, CheckCircle2, AlertCircle, Wrench,
-  UserPlus, Edit3, ShieldCheck, ChevronDown, Inbox, Check, XCircle, KeyRound,
+  UserPlus, ChevronDown, Inbox, Check,
+  XCircle, KeyRound, MessageSquare, Bell, UserMinus, Send,
+  Info, Users,
 } from 'lucide-react';
-import type { AppSettings } from '../types';
+import type { AppSettings, RecommendUserRequest, SuggestionRequest, PasswordResetRequest } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import { useTheme } from '../ThemeContext';
 import { useAuth } from '../AuthContext';
@@ -26,8 +28,9 @@ interface SettingsPanelProps {
   onReconfigureCloud: () => void;
 }
 
-type Tab = 'time' | 'security' | 'requests' | 'data' | 'cloud' | 'advanced';
-type SecuritySection = 'passwords' | 'addUser' | 'changeUsername' | 'changeRole';
+type AdminTab = 'time' | 'security' | 'requests' | 'notifications' | 'data' | 'cloud' | 'advanced';
+type UserTab = 'my-requests' | 'suggest' | 'rules' | 'notifications' | 'data';
+type SecuritySection = 'passwords' | 'addUser' | 'changeUsername' | 'changeRole' | 'removeUser';
 
 export default function SettingsPanel({
   isOpen, settings, cloudEnabled, lastSynced,
@@ -35,714 +38,375 @@ export default function SettingsPanel({
 }: SettingsPanelProps) {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
-  const { isAdmin, changePassword, getAllUsers, getPendingResets, getAllResets, resolveReset, addUser, changeUsername, changeUserRole } = useAuth();
+  const {
+    isAdmin, user, changePassword, getAllUsers, addUser, changeUsername, changeUserRole, removeUser,
+    getPendingRequests, getAllRequests, getUserRequests, resolveRequest,
+    submitRecommendUser, submitSuggestion,
+    sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
+  } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<Tab>('time');
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('time');
+  const [activeUserTab, setActiveUserTab] = useState<UserTab>('rules');
   const [draft, setDraft] = useState<AppSettings>(settings);
   const [saved, setSaved] = useState(false);
-  const [busyPasswordKey, setBusyPasswordKey] = useState<string | null>(null);
+  const [securitySection, setSecuritySection] = useState<SecuritySection>('passwords');
+  const [ver, setVer] = useState(0);
+  const bump = () => setVer(v => v + 1);
 
+  // Password states
   const [adminPw, setAdminPw] = useState('');
   const [adminPwConfirm, setAdminPwConfirm] = useState('');
   const [userPasswords, setUserPasswords] = useState<Record<string, string>>({});
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [pwMessage, setPwMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
-  // Security section state
-  const [securitySection, setSecuritySection] = useState<SecuritySection>('passwords');
+  // Add/Edit user states
+  const [newKey, setNewKey] = useState(''); const [newDisplay, setNewDisplay] = useState('');
+  const [newPw, setNewPw] = useState(''); const [newRole, setNewRole] = useState<UserRole>('user');
+  const [addMsg, setAddMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editNameKey, setEditNameKey] = useState(''); const [editNameVal, setEditNameVal] = useState('');
+  const [editRoleKey, setEditRoleKey] = useState(''); const [editRoleVal, setEditRoleVal] = useState<UserRole>('user');
+  const [removeKey, setRemoveKey] = useState('');
+  const [secMsg, setSecMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Add user state
-  const [newUserKey, setNewUserKey] = useState('');
-  const [newUserDisplay, setNewUserDisplay] = useState('');
-  const [newUserPassword, setNewUserPassword] = useState('');
-  const [newUserRole, setNewUserRole] = useState<UserRole>('user');
-  const [addUserBusy, setAddUserBusy] = useState(false);
-  const [addUserMessage, setAddUserMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Request states
+  const [editPw, setEditPw] = useState<Record<string, string>>({});
+  const [editReply, setEditReply] = useState<Record<string, string>>({});
 
-  // Change username state
-  const [editUsernameKey, setEditUsernameKey] = useState('');
-  const [editUsernameValue, setEditUsernameValue] = useState('');
-  const [editUsernameBusy, setEditUsernameBusy] = useState(false);
-  const [editUsernameMessage, setEditUsernameMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // User recommend states
+  const [recKey, setRecKey] = useState(''); const [recDisplay, setRecDisplay] = useState('');
+  const [recPw, setRecPw] = useState(''); const [recMsg, setRecMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Change role state
-  const [editRoleKey, setEditRoleKey] = useState('');
-  const [editRoleValue, setEditRoleValue] = useState<UserRole>('user');
-  const [editRoleBusy, setEditRoleBusy] = useState(false);
-  const [editRoleMessage, setEditRoleMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  // Suggestion states
+  const [sugText, setSugText] = useState(''); const [sugMsg, setSugMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Notification states
+  const [notifTarget, setNotifTarget] = useState('all');
+  const [notifMsg, setNotifMsg] = useState('');
+  const [notifType, setNotifType] = useState<'warning' | 'info' | 'success'>('warning');
 
   const [showDebug, setShowDebug] = useState(false);
-  const [, setResetVersion] = useState(0);
-  const pendingResets = getPendingResets();
-  const allResets = getAllResets();
-  const [editPw, setEditPw] = useState<Record<string, string>>({});
   const [debugText, setDebugText] = useState('');
-
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [importMsg, setImportMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const tabs: Array<{ id: Tab; label: string; icon: React.ComponentType<{ className?: string }>; adminOnly?: boolean }> = [
-    { id: 'time', label: 'Time', icon: Clock, adminOnly: true },
-    { id: 'security', label: 'Security', icon: Shield, adminOnly: true },
-    { id: 'requests', label: 'Requests', icon: Inbox, adminOnly: true },
+  const users = useMemo(() => getAllUsers(), [getAllUsers, ver]);
+  const pendingReqs = useMemo(() => getPendingRequests(), [getPendingRequests, ver]);
+  const userReqs = useMemo(() => user ? getUserRequests(user.key) : [], [user, getUserRequests, ver]);
+  const userNotifs = useMemo(() => user ? getNotificationsForUser(user.key) : [], [user, getNotificationsForUser, ver]);
+  const unreadCount = useMemo(() => user ? getUnreadCount(user.key) : 0, [user, getUnreadCount, ver]);
+
+  // Style helpers
+  const cardCls = isGlass ? 'p-4 rounded-xl bg-gray-900/5 border border-gray-200/50' : 'p-4 rounded-xl bg-[#fafafa] border border-[#e5e5e5]';
+  const inputCls = isGlass
+    ? 'w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-gray-900/10 transition-all text-sm'
+    : 'w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-semibold focus:outline-none focus:border-[#0f0f0f] transition-all text-sm';
+  const selectCls = inputCls + ' appearance-none cursor-pointer';
+  const btnPrimary = isGlass ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-[#0f0f0f] text-white hover:bg-[#333]';
+  const btnSecondary = isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]';
+  const labelCls = isGlass ? 'text-gray-500' : 'text-[#666]';
+  const headCls = isGlass ? 'text-gray-900' : 'text-[#0f0f0f]';
+  const subTabCls = (a: boolean) => isGlass
+    ? `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${a ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`
+    : `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${a ? 'bg-[#0f0f0f] text-white' : 'bg-[#f5f5f5] text-[#999] hover:bg-[#eee]'}`;
+
+  const handleSave = () => { onSaveSettings(draft); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  const handleResetSettings = () => { setDraft(DEFAULT_SETTINGS); onSaveSettings(DEFAULT_SETTINGS); setSaved(true); setTimeout(() => setSaved(false), 1500); };
+  const handleExport = () => { const d = localStorage.getItem(`screentime_state_${user?.key}`) || '{}'; const b = new Blob([d], { type: 'application/json' }); const u = URL.createObjectURL(b); const a = document.createElement('a'); a.href = u; a.download = `screentime-${new Date().toISOString().split('T')[0]}.json`; a.click(); URL.revokeObjectURL(u); };
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = (ev) => { try { const p = JSON.parse(ev.target?.result as string); if (!p.dailyData) throw 0; onReplaceData(p); setImportMsg({ type: 'success', text: 'Imported' }); } catch { setImportMsg({ type: 'error', text: 'Invalid' }); } setTimeout(() => setImportMsg(null), 2500); }; r.readAsText(f); if (fileInputRef.current) fileInputRef.current.value = ''; };
+  const handleResetData = () => { if (confirm('Delete ALL data?')) onResetData(); };
+  const handleClose = () => { setDraft(settings); onClose(); };
+  const fmtTime = (ts: string) => { const d = new Date(ts); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); };
+
+  const Msg = ({ m }: { m: { type: 'success' | 'error'; text: string } }) => (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-sm font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${m.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-200'}`}>
+      {m.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}{m.text}
+    </motion.div>
+  );
+
+  // ═══════════════════════════════════
+  //  ADMIN CONTENT
+  // ═══════════════════════════════════
+  const adminTabs: Array<{ id: AdminTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }> = [
+    { id: 'time', label: 'Time', icon: Clock },
+    { id: 'security', label: 'Security', icon: Shield },
+    { id: 'requests', label: 'Requests', icon: Inbox, badge: pendingReqs.length },
+    { id: 'notifications', label: 'Notify', icon: Bell },
     { id: 'data', label: 'Data', icon: Database },
     { id: 'cloud', label: 'Cloud', icon: Cloud },
-    { id: 'advanced', label: 'Advanced', icon: Wrench, adminOnly: true },
+    { id: 'advanced', label: 'Advanced', icon: Wrench },
   ];
 
-  const visibleTabs = tabs.filter(t => !t.adminOnly || isAdmin);
-  const users = useMemo(() => getAllUsers(), [getAllUsers, addUserMessage, editUsernameMessage, editRoleMessage]);
-
-  const securityTabs: Array<{ id: SecuritySection; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-    { id: 'passwords', label: 'Passwords', icon: Shield },
-    { id: 'addUser', label: 'Add User', icon: UserPlus },
-    { id: 'changeUsername', label: 'Username', icon: Edit3 },
-    { id: 'changeRole', label: 'Role', icon: ShieldCheck },
-  ];
-
-  const handleSaveTime = () => {
-    onSaveSettings(draft);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  const handleResetSettings = () => {
-    setDraft(DEFAULT_SETTINGS);
-    onSaveSettings(DEFAULT_SETTINGS);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
-  };
-
-  const handleChangeAdminPassword = async () => {
-    if (!adminPw.trim()) {
-      setPwMessage({ type: 'error', text: 'Password cannot be empty' });
-      return;
-    }
-    if (adminPw !== adminPwConfirm) {
-      setPwMessage({ type: 'error', text: 'Passwords do not match' });
-      return;
-    }
-    if (adminPw.length < 6) {
-      setPwMessage({ type: 'error', text: 'Password must be at least 6 characters' });
-      return;
-    }
-    setBusyPasswordKey('admin');
-    const ok = await changePassword('admin', adminPw);
-    setBusyPasswordKey(null);
-    if (ok) {
-      setPwMessage({ type: 'success', text: 'Admin password updated in cloud/local cache' });
-      setAdminPw('');
-      setAdminPwConfirm('');
-    } else {
-      setPwMessage({ type: 'error', text: 'Failed to update password' });
-    }
-  };
-
-  const handleChangeUserPassword = async (userKey: string) => {
-    const newPw = userPasswords[userKey];
-    if (!newPw || !newPw.trim()) {
-      setPwMessage({ type: 'error', text: 'Password cannot be empty' });
-      return;
-    }
-    if (newPw.length < 6) {
-      setPwMessage({ type: 'error', text: 'Password must be at least 6 characters' });
-      return;
-    }
-    setBusyPasswordKey(userKey);
-    const ok = await changePassword(userKey, newPw);
-    setBusyPasswordKey(null);
-    if (ok) {
-      setPwMessage({ type: 'success', text: `${users.find(u => u.key === userKey)?.display || userKey}'s password updated` });
-      setUserPasswords(prev => ({ ...prev, [userKey]: '' }));
-    } else {
-      setPwMessage({ type: 'error', text: 'Failed to update password' });
-    }
-  };
-
-  // ── Add User handler ──
-  const handleAddUser = async () => {
-    setAddUserMessage(null);
-    if (!newUserKey.trim()) {
-      setAddUserMessage({ type: 'error', text: 'Login key (username) is required' });
-      return;
-    }
-    if (!newUserDisplay.trim()) {
-      setAddUserMessage({ type: 'error', text: 'Display name is required' });
-      return;
-    }
-    if (!newUserPassword.trim()) {
-      setAddUserMessage({ type: 'error', text: 'Password is required' });
-      return;
-    }
-    if (newUserPassword.length < 6) {
-      setAddUserMessage({ type: 'error', text: 'Password must be at least 6 characters' });
-      return;
-    }
-    setAddUserBusy(true);
-    const result = await addUser(newUserKey, newUserDisplay, newUserPassword, newUserRole);
-    setAddUserBusy(false);
-    if (result.success) {
-      setAddUserMessage({ type: 'success', text: `User "${newUserDisplay.trim()}" added successfully` });
-      setNewUserKey('');
-      setNewUserDisplay('');
-      setNewUserPassword('');
-      setNewUserRole('user');
-    } else {
-      setAddUserMessage({ type: 'error', text: result.error || 'Failed to add user' });
-    }
-  };
-
-  // ── Change Username handler ──
-  const handleChangeUsername = async () => {
-    setEditUsernameMessage(null);
-    if (!editUsernameKey) {
-      setEditUsernameMessage({ type: 'error', text: 'Please select a user' });
-      return;
-    }
-    if (!editUsernameValue.trim()) {
-      setEditUsernameMessage({ type: 'error', text: 'Display name cannot be empty' });
-      return;
-    }
-    setEditUsernameBusy(true);
-    const result = await changeUsername(editUsernameKey, editUsernameValue);
-    setEditUsernameBusy(false);
-    if (result.success) {
-      setEditUsernameMessage({ type: 'success', text: `Username updated to "${editUsernameValue.trim()}"` });
-      setEditUsernameValue('');
-      setEditUsernameKey('');
-    } else {
-      setEditUsernameMessage({ type: 'error', text: result.error || 'Failed to change username' });
-    }
-  };
-
-  // ── Change Role handler ──
-  const handleChangeRole = async () => {
-    setEditRoleMessage(null);
-    if (!editRoleKey) {
-      setEditRoleMessage({ type: 'error', text: 'Please select a user' });
-      return;
-    }
-    if (editRoleKey === 'admin') {
-      setEditRoleMessage({ type: 'error', text: 'Cannot change the admin role' });
-      return;
-    }
-    setEditRoleBusy(true);
-    const result = await changeUserRole(editRoleKey, editRoleValue);
-    setEditRoleBusy(false);
-    if (result.success) {
-      const display = users.find(u => u.key === editRoleKey)?.display || editRoleKey;
-      setEditRoleMessage({ type: 'success', text: `${display} is now ${editRoleValue === 'admin' ? 'an Admin' : 'a User'}` });
-      setEditRoleKey('');
-      setEditRoleValue('user');
-    } else {
-      setEditRoleMessage({ type: 'error', text: result.error || 'Failed to change role' });
-    }
-  };
-
-  const handleExport = () => {
-    const currentUser = JSON.parse(localStorage.getItem('screentime_user') || 'null');
-    const key = currentUser?.key;
-    const data = localStorage.getItem(`screentime_state_${key}`) || '{}';
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `screentime-backup-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target?.result as string);
-        if (!parsed.dailyData) throw new Error('Invalid format');
-        onReplaceData(parsed);
-        setImportMessage({ type: 'success', text: 'Data imported successfully' });
-        setTimeout(() => setImportMessage(null), 2500);
-      } catch {
-        setImportMessage({ type: 'error', text: 'Invalid file format' });
-        setTimeout(() => setImportMessage(null), 2500);
-      }
-    };
-    reader.readAsText(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const handleResetData = () => {
-    if (confirm('Are you sure you want to delete ALL logged time? This cannot be undone.')) {
-      onResetData();
-    }
-  };
-
-  const handleReconfigure = () => {
-    localStorage.removeItem('screentime_setup_skipped');
-    onReconfigureCloud();
-  };
-
-  const handleShowDebug = () => {
-    const currentUser = JSON.parse(localStorage.getItem('screentime_user') || 'null');
-    const key = currentUser?.key;
-    const data = localStorage.getItem(`screentime_state_${key}`) || '{}';
-    try { setDebugText(JSON.stringify(JSON.parse(data), null, 2)); } catch { setDebugText(data); }
-    setShowDebug(true);
-  };
-
-  const handleClose = () => {
-    setDraft(settings);
-    onClose();
-  };
-
-  const inputCls = isGlass
-    ? 'w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-all'
-    : 'w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-semibold focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all';
-
-  const selectCls = isGlass
-    ? 'w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200/80 text-gray-900 font-semibold focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-all appearance-none cursor-pointer'
-    : 'w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-semibold focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all appearance-none cursor-pointer';
-
-  const primaryBtnCls = isGlass
-    ? 'bg-gray-900 text-white hover:bg-gray-800'
-    : 'bg-[#0f0f0f] text-white hover:bg-[#333]';
-
-  const secSubTabCls = (active: boolean) => isGlass
-    ? `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${active ? 'bg-gray-900 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-700'}`
-    : `px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${active ? 'bg-[#0f0f0f] text-white' : 'bg-[#f5f5f5] text-[#999] hover:bg-[#eee] hover:text-[#666]'}`;
-
-  const cardCls = isGlass
-    ? 'p-4 rounded-xl bg-gray-900/5 border border-gray-200/50'
-    : 'p-4 rounded-xl bg-[#fafafa] border border-[#e5e5e5]';
-
-  const labelCls = isGlass ? 'text-gray-500' : 'text-[#666]';
-  const headingCls = isGlass ? 'text-gray-900' : 'text-[#0f0f0f]';
-
-  const content = (
+  const adminContent = (
     <>
-      {activeTab === 'time' && (
-        <motion.div key="time" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-          <Field label="Max Daily Time" hint="Minutes allowed per day" icon={Clock}><input type="number" min={1} max={480} value={draft.maxTime} onChange={e => setDraft({ ...draft, maxTime: Math.max(1, parseInt(e.target.value) || 1) })} className={inputCls} /></Field>
-          <Field label="Penalty Multiplier" hint="Excess time × this ratio" icon={AlertTriangle}><input type="number" min={0} max={10} step={0.1} value={draft.penaltyRatio} onChange={e => setDraft({ ...draft, penaltyRatio: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} /></Field>
-          <Field label="Full Block Threshold" hint="Penalty >= this triggers full day block" icon={AlertTriangle}><input type="number" min={1} max={480} value={draft.fullBlockThreshold} onChange={e => setDraft({ ...draft, fullBlockThreshold: Math.max(1, parseInt(e.target.value) || 1) })} className={inputCls} /></Field>
-          <Field label="Carry Forward" hint="Carry excess penalty to next days" icon={AlertTriangle}><button onClick={() => setDraft({ ...draft, carryForwardEnabled: !draft.carryForwardEnabled })} className={`relative w-12 h-7 rounded-full transition-colors ${draft.carryForwardEnabled ? 'bg-green-500' : 'bg-gray-300'}`}><motion.div animate={{ x: draft.carryForwardEnabled ? 22 : 2 }} className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md" /></button></Field>
-          <div className="flex gap-2 pt-3">
-            <button onClick={handleSaveTime} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all ${primaryBtnCls}`}>{saved ? <><CheckCircle2 className="w-4 h-4" /> Saved</> : <><Save className="w-4 h-4" /> Save Changes</>}</button>
-            <button onClick={handleResetSettings} className={`py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all ${isGlass ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><RotateCcw className="w-4 h-4" /> Defaults</button>
+      {activeAdminTab === 'time' && (
+        <motion.div key="time" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          <Field label="Max Daily Time" hint="Minutes/day" icon={Clock}><input type="number" min={1} max={480} value={draft.maxTime} onChange={e => setDraft({ ...draft, maxTime: Math.max(1, parseInt(e.target.value) || 1) })} className={inputCls} /></Field>
+          <Field label="Penalty Multiplier" hint="Excess × ratio" icon={AlertTriangle}><input type="number" min={0} max={10} step={0.1} value={draft.penaltyRatio} onChange={e => setDraft({ ...draft, penaltyRatio: Math.max(0, parseFloat(e.target.value) || 0) })} className={inputCls} /></Field>
+          <Field label="Block Threshold" hint="Penalty >= this = full block" icon={AlertTriangle}><input type="number" min={1} max={480} value={draft.fullBlockThreshold} onChange={e => setDraft({ ...draft, fullBlockThreshold: Math.max(1, parseInt(e.target.value) || 1) })} className={inputCls} /></Field>
+          <Field label="Carry Forward" hint="Carry penalty to next days" icon={AlertTriangle}><button onClick={() => setDraft({ ...draft, carryForwardEnabled: !draft.carryForwardEnabled })} className={`relative w-12 h-7 rounded-full transition-colors ${draft.carryForwardEnabled ? 'bg-green-500' : 'bg-gray-300'}`}><motion.div animate={{ x: draft.carryForwardEnabled ? 22 : 2 }} className="absolute top-0.5 w-6 h-6 bg-white rounded-full shadow-md" /></button></Field>
+          <div className="flex gap-2 pt-2">
+            <button onClick={handleSave} className={`flex-1 py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${btnPrimary}`}>{saved ? <><CheckCircle2 className="w-4 h-4" /> Saved</> : <><Save className="w-4 h-4" /> Save</>}</button>
+            <button onClick={handleResetSettings} className={`py-2.5 px-4 rounded-lg font-semibold text-sm ${btnSecondary}`}><RotateCcw className="w-4 h-4" /></button>
           </div>
         </motion.div>
       )}
 
-      {activeTab === 'security' && isAdmin && (
-        <motion.div key="security" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-          {/* Sub-tabs for security sections */}
+      {activeAdminTab === 'security' && (
+        <motion.div key="security" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
           <div className="flex flex-wrap gap-1.5">
-            {securityTabs.map(st => {
-              const Icon = st.icon;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => setSecuritySection(st.id)}
-                  className={secSubTabCls(securitySection === st.id)}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Icon className="w-3 h-3" />
-                    {st.label}
-                  </span>
-                </button>
-              );
-            })}
+            {(['passwords', 'addUser', 'changeUsername', 'changeRole', 'removeUser'] as SecuritySection[]).map(s => (
+              <button key={s} onClick={() => setSecuritySection(s)} className={subTabCls(securitySection === s)}>
+                {s === 'passwords' && '🔒 Passwords'}
+                {s === 'addUser' && '➕ Add'}
+                {s === 'changeUsername' && '✏️ Name'}
+                {s === 'changeRole' && '🛡️ Role'}
+                {s === 'removeUser' && '🗑️ Remove'}
+              </button>
+            ))}
           </div>
 
-          <AnimatePresence mode="wait">
-            {/* ═══════════ PASSWORDS SECTION ═══════════ */}
-            {securitySection === 'passwords' && (
-              <motion.div key="pw" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="space-y-4">
-                <div className={cardCls}>
-                  <h3 className={`text-sm font-bold mb-3 ${headingCls}`}>Admin Password</h3>
-                  <div className="space-y-2">
-                    <PasswordInput label="New password" value={adminPw} onChange={setAdminPw} show={showPasswords['admin-new']} onToggle={() => setShowPasswords(p => ({ ...p, 'admin-new': !p['admin-new'] }))} />
-                    <PasswordInput label="Confirm" value={adminPwConfirm} onChange={setAdminPwConfirm} show={showPasswords['admin-confirm']} onToggle={() => setShowPasswords(p => ({ ...p, 'admin-confirm': !p['admin-confirm'] }))} />
-                    <button onClick={handleChangeAdminPassword} className={`w-full py-2 rounded-lg font-semibold text-sm ${primaryBtnCls}`}>
-                      {busyPasswordKey === 'admin' ? 'Updating...' : 'Update Admin Password'}
-                    </button>
-                  </div>
-                </div>
-
-                {users.filter(u => u.role === 'user').map(u => (
-                  <div key={u.key} className={cardCls}>
-                    <h3 className={`text-sm font-bold mb-3 ${headingCls}`}>{u.display}'s Password</h3>
-                    <div className="space-y-2">
-                      <PasswordInput label="New password" value={userPasswords[u.key] || ''} onChange={v => setUserPasswords(p => ({ ...p, [u.key]: v }))} show={showPasswords[u.key]} onToggle={() => setShowPasswords(p => ({ ...p, [u.key]: !p[u.key] }))} />
-                      <button onClick={() => handleChangeUserPassword(u.key)} className={`w-full py-2 rounded-lg font-semibold text-sm ${primaryBtnCls}`}>
-                        {busyPasswordKey === u.key ? 'Updating...' : 'Update'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {pwMessage && <MessageBanner message={pwMessage} />}
-              </motion.div>
-            )}
-
-            {/* ═══════════ ADD USER SECTION ═══════════ */}
-            {securitySection === 'addUser' && (
-              <motion.div key="add" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="space-y-4">
-                <div className={cardCls}>
-                  <h3 className={`text-sm font-bold mb-3 flex items-center gap-2 ${headingCls}`}>
-                    <UserPlus className="w-4 h-4" /> Add New User
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Login Key</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. john"
-                        value={newUserKey}
-                        onChange={e => setNewUserKey(e.target.value)}
-                        className={inputCls}
-                      />
-                      <p className={`text-[10px] mt-0.5 ${labelCls}`}>Lowercase key used to log in</p>
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Display Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. John Doe"
-                        value={newUserDisplay}
-                        onChange={e => setNewUserDisplay(e.target.value)}
-                        className={inputCls}
-                      />
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Password</label>
-                      <PasswordInput
-                        label=""
-                        value={newUserPassword}
-                        onChange={setNewUserPassword}
-                        show={showPasswords['new-user']}
-                        onToggle={() => setShowPasswords(p => ({ ...p, 'new-user': !p['new-user'] }))}
-                      />
-                      <p className={`text-[10px] mt-0.5 ${labelCls}`}>Minimum 6 characters</p>
-                    </div>
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Role</label>
-                      <div className="relative">
-                        <select
-                          value={newUserRole}
-                          onChange={e => setNewUserRole(e.target.value as UserRole)}
-                          className={selectCls}
-                        >
-                          <option value="user">User</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} />
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleAddUser}
-                      disabled={addUserBusy}
-                      className={`w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${primaryBtnCls}`}
-                    >
-                      {addUserBusy ? 'Adding...' : <><UserPlus className="w-4 h-4" /> Add User</>}
-                    </button>
-                  </div>
-                </div>
-
-                {addUserMessage && <MessageBanner message={addUserMessage} />}
-
-                {/* Existing users list */}
-                <div className={cardCls}>
-                  <h3 className={`text-xs font-bold mb-2 ${headingCls}`}>Current Users</h3>
-                  <div className="space-y-1.5">
-                    {users.map(u => (
-                      <div key={u.key} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
-                        <div>
-                          <span className={`font-semibold ${headingCls}`}>{u.display}</span>
-                          <span className={`ml-1.5 ${labelCls}`}>({u.key})</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          u.role === 'admin'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>{u.role}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* ═══════════ CHANGE USERNAME SECTION ═══════════ */}
-            {securitySection === 'changeUsername' && (
-              <motion.div key="uname" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="space-y-4">
-                <div className={cardCls}>
-                  <h3 className={`text-sm font-bold mb-3 flex items-center gap-2 ${headingCls}`}>
-                    <Edit3 className="w-4 h-4" /> Change Display Name
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Select User</label>
-                      <div className="relative">
-                        <select
-                          value={editUsernameKey}
-                          onChange={e => {
-                            setEditUsernameKey(e.target.value);
-                            const u = users.find(u => u.key === e.target.value);
-                            setEditUsernameValue(u?.display || '');
-                          }}
-                          className={selectCls}
-                        >
-                          <option value="">Choose a user...</option>
-                          {users.map(u => (
-                            <option key={u.key} value={u.key}>{u.display} ({u.key})</option>
-                          ))}
-                        </select>
-                        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} />
-                      </div>
-                    </div>
-                    {editUsernameKey && (
-                      <>
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>New Display Name</label>
-                          <input
-                            type="text"
-                            value={editUsernameValue}
-                            onChange={e => setEditUsernameValue(e.target.value)}
-                            className={inputCls}
-                          />
-                        </div>
-                        <button
-                          onClick={handleChangeUsername}
-                          disabled={editUsernameBusy}
-                          className={`w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${primaryBtnCls}`}
-                        >
-                          {editUsernameBusy ? 'Updating...' : <><Edit3 className="w-4 h-4" /> Update Username</>}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {editUsernameMessage && <MessageBanner message={editUsernameMessage} />}
-              </motion.div>
-            )}
-
-            {/* ═══════════ CHANGE ROLE SECTION ═══════════ */}
-            {securitySection === 'changeRole' && (
-              <motion.div key="role" initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} className="space-y-4">
-                <div className={cardCls}>
-                  <h3 className={`text-sm font-bold mb-3 flex items-center gap-2 ${headingCls}`}>
-                    <ShieldCheck className="w-4 h-4" /> Change User Role
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>Select User</label>
-                      <div className="relative">
-                        <select
-                          value={editRoleKey}
-                          onChange={e => {
-                            setEditRoleKey(e.target.value);
-                            const u = users.find(u => u.key === e.target.value);
-                            setEditRoleValue(u?.role || 'user');
-                          }}
-                          className={selectCls}
-                        >
-                          <option value="">Choose a user...</option>
-                          {users.filter(u => u.key !== 'admin').map(u => (
-                            <option key={u.key} value={u.key}>{u.display} ({u.key}) — {u.role}</option>
-                          ))}
-                        </select>
-                        <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} />
-                      </div>
-                      <p className={`text-[10px] mt-0.5 ${labelCls}`}>The primary admin account cannot be changed</p>
-                    </div>
-                    {editRoleKey && (
-                      <>
-                        <div>
-                          <label className={`block text-xs font-semibold mb-1 ${labelCls}`}>New Role</label>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setEditRoleValue('user')}
-                              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
-                                editRoleValue === 'user'
-                                  ? (isGlass ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-blue-50 border-blue-300 text-blue-700')
-                                  : (isGlass ? 'bg-white border-gray-200 text-gray-400' : 'bg-white border-[#e5e5e5] text-[#999]')
-                              }`}
-                            >
-                              User
-                            </button>
-                            <button
-                              onClick={() => setEditRoleValue('admin')}
-                              className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all border ${
-                                editRoleValue === 'admin'
-                                  ? (isGlass ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-amber-50 border-amber-300 text-amber-700')
-                                  : (isGlass ? 'bg-white border-gray-200 text-gray-400' : 'bg-white border-[#e5e5e5] text-[#999]')
-                              }`}
-                            >
-                              Admin
-                            </button>
-                          </div>
-                        </div>
-                        <button
-                          onClick={handleChangeRole}
-                          disabled={editRoleBusy}
-                          className={`w-full py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50 ${primaryBtnCls}`}
-                        >
-                          {editRoleBusy ? 'Updating...' : <><ShieldCheck className="w-4 h-4" /> Update Role</>}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {editRoleMessage && <MessageBanner message={editRoleMessage} />}
-
-                {/* Role overview */}
-                <div className={cardCls}>
-                  <h3 className={`text-xs font-bold mb-2 ${headingCls}`}>All Users & Roles</h3>
-                  <div className="space-y-1.5">
-                    {users.map(u => (
-                      <div key={u.key} className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
-                        <div>
-                          <span className={`font-semibold ${headingCls}`}>{u.display}</span>
-                          <span className={`ml-1.5 ${labelCls}`}>({u.key})</span>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                          u.role === 'admin'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}>{u.role}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-
-      {activeTab === 'requests' && isAdmin && (
-        <motion.div key="requests" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
-          {pendingResets.length === 0 && (
-            <div className={`${cardCls} flex flex-col items-center py-8`}>
-              <Inbox className={`w-10 h-10 mb-3 ${isGlass ? 'text-gray-300' : 'text-[#ccc]'}`} />
-              <p className={`text-sm font-semibold ${isGlass ? 'text-gray-500' : 'text-[#999]'}`}>No pending requests</p>
-              <p className={`text-xs mt-1 ${isGlass ? 'text-gray-400' : 'text-[#bbb]'}`}>Password reset requests from users appear here</p>
+          {securitySection === 'passwords' && (
+            <div className="space-y-3">
+              <div className={cardCls}><h3 className={`text-sm font-bold mb-2 ${headCls}`}>Admin Password</h3><div className="space-y-2"><PwInput label="New" value={adminPw} onChange={setAdminPw} show={showPasswords['a1']} onToggle={() => setShowPasswords(p => ({...p, 'a1': !p['a1']}))} /><PwInput label="Confirm" value={adminPwConfirm} onChange={setAdminPwConfirm} show={showPasswords['a2']} onToggle={() => setShowPasswords(p => ({...p, 'a2': !p['a2']}))} /><button onClick={async () => { if (!adminPw.trim() || adminPw.length < 6) { setPwMessage({ type:'error', text:'Min 6 chars' }); return; } if (adminPw !== adminPwConfirm) { setPwMessage({ type:'error', text:'No match' }); return; } setBusyKey('admin'); const ok = await changePassword('admin', adminPw); setBusyKey(null); setPwMessage(ok ? { type:'success', text:'Updated' } : { type:'error', text:'Failed' }); if (ok) { setAdminPw(''); setAdminPwConfirm(''); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}>{busyKey === 'admin' ? '...' : 'Update'}</button></div></div>
+              {users.filter(u => u.role === 'user').map(u => (
+                <div key={u.key} className={cardCls}><h3 className={`text-sm font-bold mb-2 ${headCls}`}>{u.display}</h3><div className="space-y-2"><PwInput label="New password" value={userPasswords[u.key] || ''} onChange={v => setUserPasswords(p => ({...p, [u.key]: v}))} show={showPasswords[u.key]} onToggle={() => setShowPasswords(p => ({...p, [u.key]: !p[u.key]}))} /><button onClick={async () => { const pw = userPasswords[u.key]; if (!pw?.trim() || pw.length < 6) { setPwMessage({ type:'error', text:'Min 6 chars' }); return; } setBusyKey(u.key); const ok = await changePassword(u.key, pw); setBusyKey(null); setPwMessage(ok ? { type:'success', text:'Updated' } : { type:'error', text:'Failed' }); if (ok) setUserPasswords(p => ({...p, [u.key]: ''})); }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}>{busyKey === u.key ? '...' : 'Update'}</button></div></div>
+              ))}
+              {pwMessage && <Msg m={pwMessage} />}
             </div>
           )}
 
-          {pendingResets.map(req => (
+          {securitySection === 'addUser' && (
+            <div className="space-y-3">
+              <div className={cardCls}><h3 className={`text-sm font-bold mb-2 ${headCls}`}><UserPlus className="w-4 h-4 inline mr-1" />Add User</h3><div className="space-y-2"><input placeholder="Login key" value={newKey} onChange={e => setNewKey(e.target.value)} className={inputCls} /><input placeholder="Display name" value={newDisplay} onChange={e => setNewDisplay(e.target.value)} className={inputCls} /><PwInput label="" value={newPw} onChange={setNewPw} show={showPasswords['new']} onToggle={() => setShowPasswords(p => ({...p, 'new': !p['new']}))} /><div className="relative"><select value={newRole} onChange={e => setNewRole(e.target.value as UserRole)} className={selectCls}><option value="user">User</option><option value="admin">Admin</option></select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div><button onClick={async () => { const r = await addUser(newKey, newDisplay, newPw, newRole); setAddMsg(r.success ? { type:'success', text:'Added' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setNewKey(''); setNewDisplay(''); setNewPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}>Add User</button></div></div>
+              {addMsg && <Msg m={addMsg} />}
+              <UsersList users={users} headCls={headCls} labelCls={labelCls} cardCls={cardCls} isGlass={isGlass} />
+            </div>
+          )}
+
+          {securitySection === 'changeUsername' && (
+            <div className="space-y-3">
+              <div className={cardCls}><div className="space-y-2"><div className="relative"><select value={editNameKey} onChange={e => { setEditNameKey(e.target.value); setEditNameVal(users.find(u => u.key === e.target.value)?.display || ''); }} className={selectCls}><option value="">Choose user...</option>{users.map(u => <option key={u.key} value={u.key}>{u.display} ({u.key})</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>{editNameKey && <><input value={editNameVal} onChange={e => setEditNameVal(e.target.value)} className={inputCls} placeholder="New name" /><button onClick={async () => { const r = await changeUsername(editNameKey, editNameVal); setSecMsg(r.success ? { type:'success', text:'Updated' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setEditNameKey(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}>Update</button></>}</div></div>
+              {secMsg && <Msg m={secMsg} />}
+            </div>
+          )}
+
+          {securitySection === 'changeRole' && (
+            <div className="space-y-3">
+              <div className={cardCls}><div className="space-y-2"><div className="relative"><select value={editRoleKey} onChange={e => { setEditRoleKey(e.target.value); setEditRoleVal(users.find(u => u.key === e.target.value)?.role || 'user'); }} className={selectCls}><option value="">Choose user...</option>{users.filter(u => u.key !== 'admin').map(u => <option key={u.key} value={u.key}>{u.display} — {u.role}</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>{editRoleKey && <><div className="flex gap-2"><button onClick={() => setEditRoleVal('user')} className={`flex-1 py-2 rounded-lg text-sm font-semibold border ${editRoleVal === 'user' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-200 text-gray-400'}`}>User</button><button onClick={() => setEditRoleVal('admin')} className={`flex-1 py-2 rounded-lg text-sm font-semibold border ${editRoleVal === 'admin' ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-gray-200 text-gray-400'}`}>Admin</button></div><button onClick={async () => { const r = await changeUserRole(editRoleKey, editRoleVal); setSecMsg(r.success ? { type:'success', text:'Updated' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setEditRoleKey(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}>Update</button></>}</div></div>
+              {secMsg && <Msg m={secMsg} />}
+            </div>
+          )}
+
+          {securitySection === 'removeUser' && (
+            <div className="space-y-3">
+              <div className={cardCls}><h3 className={`text-sm font-bold mb-2 text-red-600`}><UserMinus className="w-4 h-4 inline mr-1" />Remove User</h3><div className="space-y-2"><div className="relative"><select value={removeKey} onChange={e => setRemoveKey(e.target.value)} className={selectCls}><option value="">Choose user to remove...</option>{users.filter(u => u.key !== 'admin').map(u => <option key={u.key} value={u.key}>{u.display} ({u.key})</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>{removeKey && <button onClick={async () => { if (!confirm(`Delete ${removeKey}?`)) return; const r = await removeUser(removeKey); setSecMsg(r.success ? { type:'success', text:'Removed' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRemoveKey(''); bump(); } }} className="w-full py-2 rounded-lg font-semibold text-sm bg-red-500 text-white hover:bg-red-600">Remove User</button>}</div></div>
+              {secMsg && <Msg m={secMsg} />}
+              <UsersList users={users} headCls={headCls} labelCls={labelCls} cardCls={cardCls} isGlass={isGlass} />
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {activeAdminTab === 'requests' && (
+        <motion.div key="requests" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          {pendingReqs.length === 0 && <div className={`${cardCls} text-center py-8`}><Inbox className={`w-10 h-10 mx-auto mb-3 ${isGlass ? 'text-gray-300' : 'text-[#ccc]'}`} /><p className={`text-sm font-semibold ${headCls}`}>No pending requests</p></div>}
+          {pendingReqs.map(req => (
             <div key={req.id} className={cardCls}>
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-amber-500" />
-                  <div>
-                    <p className={`text-sm font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Password Reset</p>
-                    <p className={`text-[10px] ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>from {req.userDisplay} ({req.userKey}) • {new Date(req.timestamp).toLocaleDateString()}</p>
-                  </div>
-                </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 text-amber-700">Pending</span>
+              <div className="flex items-center gap-2 mb-2">
+                {req.type === 'password_reset' && <KeyRound className="w-4 h-4 text-amber-500" />}
+                {req.type === 'recommend_user' && <Users className="w-4 h-4 text-blue-500" />}
+                {req.type === 'suggestion' && <MessageSquare className="w-4 h-4 text-purple-500" />}
+                <div><p className={`text-sm font-bold ${headCls}`}>{req.type === 'password_reset' ? 'Password Reset' : req.type === 'recommend_user' ? 'New User Recommendation' : 'Suggestion'}</p><p className={`text-[10px] ${labelCls}`}>{req.userDisplay} • {fmtTime(req.timestamp)}</p></div>
               </div>
-
-              <div className={`rounded-lg p-3 text-xs space-y-2 mb-3 ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
-                <p className={isGlass ? 'text-gray-500' : 'text-[#666]'}>Desired password: <code className={`px-2 py-0.5 rounded text-xs font-mono ${isGlass ? 'bg-gray-100' : 'bg-[#f5f5f5]'}`}>{req.desiredPassword}</code></p>
-                <div>
-                  <label className={`block text-[10px] font-semibold mb-1 ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>Edit password (optional):</label>
-                  <input type="text" value={editPw[req.id] || ''} onChange={e => setEditPw(p => ({...p, [req.id]: e.target.value}))} placeholder="Leave empty to use their desired password" className={inputCls} />
-                </div>
+              <div className={`rounded-lg p-3 text-xs mb-3 ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
+                {req.type === 'password_reset' && <><p className={labelCls}>Desired password: <code className="px-1 py-0.5 rounded bg-gray-100 font-mono">{(req as PasswordResetRequest).desiredPassword}</code></p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Edit password:</label><input value={editPw[req.id] || ''} onChange={e => setEditPw(p => ({...p, [req.id]: e.target.value}))} placeholder="Leave empty for their password" className={inputCls + ' mt-1'} /></div></>}
+                {req.type === 'recommend_user' && <><p className={labelCls}>Key: <strong className={headCls}>{(req as RecommendUserRequest).recommendedKey}</strong></p><p className={labelCls}>Name: <strong className={headCls}>{(req as RecommendUserRequest).recommendedDisplay}</strong></p></>}
+                {req.type === 'suggestion' && <><p className={headCls}>{(req as SuggestionRequest).message}</p><div className="mt-2"><label className={`text-[10px] font-semibold ${labelCls}`}>Reply:</label><input value={editReply[req.id] || ''} onChange={e => setEditReply(p => ({...p, [req.id]: e.target.value}))} placeholder="Optional reply" className={inputCls + ' mt-1'} /></div></>}
               </div>
-
               <div className="flex gap-2">
-                <button onClick={async () => { await resolveReset(req.id, 'approved', editPw[req.id] || undefined); setResetVersion(v => v + 1); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 transition-colors">
-                  <Check className="w-3.5 h-3.5" /> Approve
-                </button>
-                <button onClick={async () => { await resolveReset(req.id, 'rejected'); setResetVersion(v => v + 1); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 transition-colors">
-                  <XCircle className="w-3.5 h-3.5" /> Reject
-                </button>
+                <button onClick={async () => { await resolveRequest(req.id, 'approved', { finalPassword: editPw[req.id], adminReply: editReply[req.id] }); bump(); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"><Check className="w-3.5 h-3.5" /> Approve</button>
+                <button onClick={async () => { await resolveRequest(req.id, 'rejected'); bump(); }} className="flex-1 py-2 rounded-lg font-semibold text-xs flex items-center justify-center gap-1 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200"><XCircle className="w-3.5 h-3.5" /> Reject</button>
               </div>
             </div>
           ))}
-
-          {allResets.filter(r => r.status !== 'pending').length > 0 && (
-            <div className={cardCls}>
-              <h3 className={`text-xs font-bold mb-2 ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>History</h3>
-              <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                {allResets.filter(r => r.status !== 'pending').slice(-15).reverse().map(r => (
-                  <div key={r.id} className={`flex items-center justify-between px-3 py-2 rounded-lg text-[11px] ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
-                    <div className="flex items-center gap-2">
-                      <KeyRound className="w-3 h-3 text-amber-500" />
-                      <span className={isGlass ? 'text-gray-500' : 'text-[#666]'}>{r.userDisplay}</span>
-                    </div>
-                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {getAllRequests().filter(r => r.status !== 'pending').length > 0 && (
+            <div className={cardCls}><h3 className={`text-xs font-bold mb-2 ${headCls}`}>History</h3><div className="space-y-1 max-h-40 overflow-y-auto">{getAllRequests().filter(r => r.status !== 'pending').slice(-15).reverse().map(r => (<div key={r.id} className={`flex items-center justify-between px-3 py-1.5 rounded text-[11px] ${isGlass ? 'bg-white/50' : 'bg-white'}`}><span className={labelCls}>{r.userDisplay} — {r.type.replace('_', ' ')}</span><span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span></div>))}</div></div>
           )}
         </motion.div>
       )}
 
-      {activeTab === 'data' && (
-        <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-          <button onClick={handleExport} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><Download className="w-4 h-4" /> Export Data as JSON</button>
-          <button onClick={() => fileInputRef.current?.click()} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><Upload className="w-4 h-4" /> Import from JSON</button>
-          <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={handleImport} className="hidden" />
-          {importMessage && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`text-sm font-medium rounded-lg px-3 py-2 flex items-center gap-2 ${importMessage.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>{importMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}{importMessage.text}</motion.div>}
-          <button onClick={handleResetData} className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/50 transition-all"><Trash2 className="w-4 h-4" /> Reset All Logged Data</button>
-        </motion.div>
-      )}
-
-      {activeTab === 'cloud' && (
-        <motion.div key="cloud" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+      {activeAdminTab === 'notifications' && (
+        <motion.div key="notifs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
           <div className={cardCls}>
-            <div className="flex items-center gap-2 mb-2"><Cloud className={`w-4 h-4 ${cloudEnabled ? 'text-green-500' : 'text-gray-400'}`} /><span className={`text-sm font-bold ${headingCls}`}>Status: {cloudEnabled ? 'Connected' : 'Not configured'}</span></div>
-            {lastSynced && <p className={`text-xs ${labelCls}`}>Last synced: {lastSynced.toLocaleString()}</p>}
-            <p className={`text-xs mt-2 ${labelCls}`}>When cloud is enabled, passwords and data sync across devices.</p>
+            <h3 className={`text-sm font-bold mb-3 ${headCls}`}><Bell className="w-4 h-4 inline mr-1" />Send Notification</h3>
+            <div className="space-y-2">
+              <div className="relative"><select value={notifTarget} onChange={e => setNotifTarget(e.target.value)} className={selectCls}><option value="all">All Users</option>{users.filter(u => u.role === 'user').map(u => <option key={u.key} value={u.key}>{u.display}</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>
+              <div className="flex gap-2">{(['warning', 'info', 'success'] as const).map(t => <button key={t} onClick={() => setNotifType(t)} className={`flex-1 py-1.5 rounded text-xs font-semibold border ${notifType === t ? (t === 'warning' ? 'bg-amber-50 border-amber-300 text-amber-700' : t === 'info' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-green-50 border-green-300 text-green-700') : 'bg-white border-gray-200 text-gray-400'}`}>{t === 'warning' ? '⚠️' : t === 'info' ? 'ℹ️' : '✅'} {t}</button>)}</div>
+              <textarea value={notifMsg} onChange={e => setNotifMsg(e.target.value)} placeholder="Message..." rows={3} className={inputCls} />
+              <button onClick={() => { if (!notifMsg.trim()) return; sendNotification(notifTarget, notifMsg, notifType); setNotifMsg(''); bump(); }} className={`w-full py-2 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${btnPrimary}`}><Send className="w-4 h-4" /> Send</button>
+            </div>
           </div>
-          <button onClick={onForceSync} disabled={!cloudEnabled} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><RefreshCw className="w-4 h-4" /> Force Sync Now</button>
-          <button onClick={handleReconfigure} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><Settings2 className="w-4 h-4" /> {CLOUD_ENABLED ? 'View Supabase Setup Guide' : 'Set up Supabase'}</button>
+          {getAllNotifications().length > 0 && <div className={cardCls}><h3 className={`text-xs font-bold mb-2 ${headCls}`}>Sent</h3><div className="space-y-1 max-h-40 overflow-y-auto">{getAllNotifications().slice(0, 15).map(n => (<div key={n.id} className={`px-3 py-2 rounded text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}><p className={`font-semibold ${headCls}`}>{n.type === 'warning' ? '⚠️' : n.type === 'info' ? 'ℹ️' : '✅'} {n.message}</p><p className={`text-[10px] ${labelCls}`}>To: {n.targetUserKey === 'all' ? 'Everyone' : n.targetUserKey} • {fmtTime(n.timestamp)}</p></div>))}</div></div>}
         </motion.div>
       )}
 
-      {activeTab === 'advanced' && (
-        <motion.div key="advanced" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
-          <button onClick={handleShowDebug} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-all ${isGlass ? 'bg-white/60 hover:bg-white border border-gray-200/50 text-gray-700' : 'bg-white border border-[#e5e5e5] text-[#0f0f0f] hover:bg-[#f5f5f5]'}`}><Code2 className="w-4 h-4" /> {showDebug ? 'Hide' : 'Show'} Debug Info</button>
-          {showDebug && <pre className={`text-[10px] p-3 rounded-lg overflow-auto max-h-60 font-mono ${isGlass ? 'bg-gray-900 text-gray-100' : 'bg-[#0f0f0f] text-gray-100'}`}>{debugText}</pre>}
-          <div className={`p-4 rounded-xl text-xs ${isGlass ? 'bg-gray-900/5 text-gray-500' : 'bg-[#fafafa] text-[#666]'}`}><p className="font-semibold mb-2">Current Settings</p><ul className="space-y-1 font-mono"><li>maxTime: {settings.maxTime}</li><li>penaltyRatio: {settings.penaltyRatio}</li><li>fullBlockThreshold: {settings.fullBlockThreshold}</li><li>carryForward: {settings.carryForwardEnabled ? 'on' : 'off'}</li></ul></div>
-        </motion.div>
-      )}
+      {activeAdminTab === 'data' && <DataTab />}
+      {activeAdminTab === 'cloud' && <CloudTab />}
+      {activeAdminTab === 'advanced' && <AdvancedTab />}
     </>
   );
 
-  if (!isGlass) {
+  // ═══════════════════════════════════
+  //  USER CONTENT
+  // ═══════════════════════════════════
+  const userTabs: Array<{ id: UserTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number }> = [
+    { id: 'rules', label: 'Rules', icon: Info },
+    { id: 'my-requests', label: 'Requests', icon: Inbox },
+    { id: 'suggest', label: 'Suggest', icon: MessageSquare },
+    { id: 'notifications', label: 'Alerts', icon: Bell, badge: unreadCount },
+    { id: 'data', label: 'Data', icon: Database },
+  ];
+
+  const userContent = (
+    <>
+      {activeUserTab === 'rules' && (
+        <motion.div key="rules" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          <div className={cardCls}>
+            <h3 className={`text-sm font-bold mb-3 ${headCls}`}><Clock className="w-4 h-4 inline mr-1" />Current Rules</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className={labelCls}>Daily Limit</span><span className={`font-bold ${headCls}`}>{settings.maxTime} min</span></div>
+              <div className="flex justify-between"><span className={labelCls}>Penalty Multiplier</span><span className={`font-bold ${headCls}`}>{settings.penaltyRatio}×</span></div>
+              <div className="flex justify-between"><span className={labelCls}>Full Block Threshold</span><span className={`font-bold ${headCls}`}>{settings.fullBlockThreshold} min</span></div>
+              <div className="flex justify-between"><span className={labelCls}>Carry Forward</span><span className={`font-bold ${headCls}`}>{settings.carryForwardEnabled ? '✅ On' : '❌ Off'}</span></div>
+            </div>
+          </div>
+          <p className={`text-xs ${labelCls} text-center`}>Only admin can change these settings</p>
+        </motion.div>
+      )}
+
+      {activeUserTab === 'my-requests' && (
+        <motion.div key="myreqs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          {/* Recommend new user */}
+          <div className={cardCls}>
+            <h3 className={`text-sm font-bold mb-2 ${headCls}`}><Users className="w-4 h-4 inline mr-1" />Recommend New User</h3>
+            <div className="space-y-2">
+              <input placeholder="Login key (e.g. john)" value={recKey} onChange={e => setRecKey(e.target.value)} className={inputCls} />
+              <input placeholder="Display name" value={recDisplay} onChange={e => setRecDisplay(e.target.value)} className={inputCls} />
+              <PwInput label="" value={recPw} onChange={setRecPw} show={showPasswords['rec']} onToggle={() => setShowPasswords(p => ({...p, 'rec': !p['rec']}))} />
+              <button onClick={() => { const r = submitRecommendUser(recKey, recDisplay, recPw); setRecMsg(r.success ? { type:'success', text:'Recommendation sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRecKey(''); setRecDisplay(''); setRecPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Recommend</button>
+            </div>
+            {recMsg && <div className="mt-2"><Msg m={recMsg} /></div>}
+          </div>
+
+          {/* My requests history */}
+          <div className={cardCls}>
+            <h3 className={`text-xs font-bold mb-2 ${headCls}`}>My Requests</h3>
+            {userReqs.length === 0 && <p className={`text-xs ${labelCls}`}>No requests yet</p>}
+            <div className="space-y-1.5 max-h-60 overflow-y-auto">
+              {userReqs.slice().reverse().map(r => (
+                <div key={r.id} className={`px-3 py-2 rounded-lg text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`font-semibold ${headCls}`}>{r.type === 'password_reset' ? '🔑 Password Reset' : r.type === 'recommend_user' ? '👤 Recommend User' : '💡 Suggestion'}</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${r.status === 'pending' ? 'bg-amber-100 text-amber-700' : r.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>{r.status}</span>
+                  </div>
+                  <p className={`text-[10px] mt-0.5 ${labelCls}`}>{fmtTime(r.timestamp)}</p>
+                  {r.type === 'suggestion' && (r as SuggestionRequest).adminReply && <p className="mt-1 text-xs text-blue-600 font-medium">Admin: {(r as SuggestionRequest).adminReply}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {activeUserTab === 'suggest' && (
+        <motion.div key="suggest" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          <div className={cardCls}>
+            <h3 className={`text-sm font-bold mb-2 ${headCls}`}><MessageSquare className="w-4 h-4 inline mr-1" />Send a Suggestion</h3>
+            <div className="space-y-2">
+              <textarea value={sugText} onChange={e => setSugText(e.target.value)} placeholder="Your suggestion or feedback..." rows={4} className={inputCls} />
+              <button onClick={() => { const r = submitSuggestion(sugText); setSugMsg(r.success ? { type:'success', text:'Sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setSugText(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Submit</button>
+            </div>
+            {sugMsg && <div className="mt-2"><Msg m={sugMsg} /></div>}
+          </div>
+        </motion.div>
+      )}
+
+      {activeUserTab === 'notifications' && (
+        <motion.div key="notifs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+          {userNotifs.length === 0 && <div className={`${cardCls} text-center py-8`}><Bell className={`w-10 h-10 mx-auto mb-3 ${isGlass ? 'text-gray-300' : 'text-[#ccc]'}`} /><p className={`text-sm ${labelCls}`}>No notifications</p></div>}
+          {userNotifs.map(n => {
+            const isUnread = user ? !n.readBy.includes(user.key) : false;
+            return (
+              <div key={n.id} className={`${cardCls} ${isUnread ? 'border-l-4 border-l-amber-400' : ''}`} onClick={() => { if (user && isUnread) { markAsRead(n.id, user.key); bump(); } }}>
+                <div className="flex items-start gap-2">
+                  <span className="text-lg">{n.type === 'warning' ? '⚠️' : n.type === 'info' ? 'ℹ️' : '✅'}</span>
+                  <div><p className={`text-sm font-semibold ${headCls}`}>{n.message}</p><p className={`text-[10px] ${labelCls}`}>{fmtTime(n.timestamp)}{isUnread && <span className="ml-2 text-amber-600 font-bold">NEW</span>}</p></div>
+                </div>
+              </div>
+            );
+          })}
+        </motion.div>
+      )}
+
+      {activeUserTab === 'data' && <DataTab />}
+    </>
+  );
+
+  // ── Shared tabs ──
+  function DataTab() {
     return (
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl max-h-[85vh] flex flex-col">
-              <div className="flex items-center justify-between p-5 border-b border-[#e5e5e5]"><div className="flex items-center gap-2"><Settings2 className="w-5 h-5 text-[#0f0f0f]" /><h2 className="text-lg font-bold text-[#0f0f0f]">Settings</h2></div><button onClick={handleClose} className="text-[#999] hover:text-[#0f0f0f]"><X className="w-5 h-5" /></button></div>
-              <div className="flex border-b border-[#e5e5e5] overflow-x-auto">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-colors ${active ? 'text-[#0f0f0f] border-b-2 border-[#0f0f0f]' : 'text-[#999] hover:text-[#666]'}`}><Icon className="w-3.5 h-3.5" /> {t.label}{t.id === 'requests' && pendingResets.length > 0 && <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{pendingResets.length}</span>}</button>; })}</div>
-              <div className="p-5 overflow-y-auto"><AnimatePresence mode="wait">{content}</AnimatePresence></div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <motion.div key="data" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+        <button onClick={handleExport} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${btnSecondary}`}><Download className="w-4 h-4" /> Export JSON</button>
+        {isAdmin && <><button onClick={() => fileInputRef.current?.click()} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${btnSecondary}`}><Upload className="w-4 h-4" /> Import JSON</button><input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />{importMsg && <Msg m={importMsg} />}<button onClick={handleResetData} className="w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/50"><Trash2 className="w-4 h-4" /> Reset All Data</button></>}
+      </motion.div>
     );
   }
+
+  function CloudTab() {
+    return (
+      <motion.div key="cloud" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+        <div className={cardCls}><div className="flex items-center gap-2 mb-2"><Cloud className={`w-4 h-4 ${cloudEnabled ? 'text-green-500' : 'text-gray-400'}`} /><span className={`text-sm font-bold ${headCls}`}>{cloudEnabled ? 'Connected' : 'Not configured'}</span></div>{lastSynced && <p className={`text-xs ${labelCls}`}>Last: {lastSynced.toLocaleString()}</p>}</div>
+        <button onClick={onForceSync} disabled={!cloudEnabled} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-40 ${btnSecondary}`}><RefreshCw className="w-4 h-4" /> Force Sync</button>
+        <button onClick={() => { localStorage.removeItem('screentime_setup_skipped'); onReconfigureCloud(); }} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${btnSecondary}`}><Settings2 className="w-4 h-4" /> {CLOUD_ENABLED ? 'View Setup' : 'Set up'}</button>
+      </motion.div>
+    );
+  }
+
+  function AdvancedTab() {
+    return (
+      <motion.div key="advanced" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
+        <button onClick={() => { const d = localStorage.getItem(`screentime_state_${user?.key}`) || '{}'; try { setDebugText(JSON.stringify(JSON.parse(d), null, 2)); } catch { setDebugText(d); } setShowDebug(!showDebug); }} className={`w-full py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 ${btnSecondary}`}><Code2 className="w-4 h-4" /> {showDebug ? 'Hide' : 'Show'} Debug</button>
+        {showDebug && <pre className={`text-[10px] p-3 rounded-lg overflow-auto max-h-60 font-mono ${isGlass ? 'bg-gray-900 text-gray-100' : 'bg-[#0f0f0f] text-gray-100'}`}>{debugText}</pre>}
+      </motion.div>
+    );
+  }
+
+  // ── Modal ──
+  const tabs = isAdmin ? adminTabs : userTabs;
+  const activeTab = isAdmin ? activeAdminTab : activeUserTab;
+  const setTab = isAdmin ? (t: string) => setActiveAdminTab(t as AdminTab) : (t: string) => setActiveUserTab(t as UserTab);
+  const content = isAdmin ? adminContent : userContent;
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-black/30 backdrop-blur-md" onClick={handleClose} />
-          <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="relative w-full max-w-lg bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl shadow-black/10 max-h-[85vh] flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between p-5 border-b border-gray-200/50"><div className="flex items-center gap-2.5"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 flex items-center justify-center shadow-md shadow-gray-900/20"><Settings2 className="w-4 h-4 text-white" /></div><h2 className="text-lg font-bold text-gray-900">Settings</h2></div><button onClick={handleClose} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition-colors"><X className="w-4 h-4 text-gray-500" /></button></div>
-            <div className="flex border-b border-gray-200/50 overflow-x-auto bg-gray-50/50">{visibleTabs.map(t => { const Icon = t.icon; const active = activeTab === t.id; return <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-1.5 px-4 py-3 text-xs font-semibold whitespace-nowrap transition-all ${active ? 'text-gray-900 border-b-2 border-gray-900 bg-white' : 'text-gray-500 hover:text-gray-700'}`}><Icon className="w-3.5 h-3.5" /> {t.label}{t.id === 'requests' && pendingResets.length > 0 && <span className="ml-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{pendingResets.length}</span>}</button>; })}</div>
+          <div className={`absolute inset-0 ${isGlass ? 'bg-black/30 backdrop-blur-md' : 'bg-black/50'}`} onClick={handleClose} />
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 10 }} className={`relative w-full max-w-lg rounded-2xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden ${isGlass ? 'bg-white/95 backdrop-blur-2xl' : 'bg-white'}`}>
+            <div className={`flex items-center justify-between p-5 border-b ${isGlass ? 'border-gray-200/50' : 'border-[#e5e5e5]'}`}>
+              <div className="flex items-center gap-2"><Settings2 className={`w-5 h-5 ${headCls}`} /><h2 className={`text-lg font-bold ${headCls}`}>Settings</h2></div>
+              <button onClick={handleClose} className={`w-8 h-8 rounded-full flex items-center justify-center ${isGlass ? 'bg-gray-100 hover:bg-gray-200 text-gray-500' : 'text-[#999] hover:text-[#0f0f0f]'}`}><X className="w-4 h-4" /></button>
+            </div>
+            <div className={`flex border-b overflow-x-auto ${isGlass ? 'border-gray-200/50 bg-gray-50/50' : 'border-[#e5e5e5]'}`}>
+              {tabs.map(t => { const Icon = t.icon; const a = activeTab === t.id; return (
+                <button key={t.id} onClick={() => setTab(t.id)} className={`flex items-center gap-1 px-3 py-3 text-xs font-semibold whitespace-nowrap relative ${a ? (isGlass ? 'text-gray-900 border-b-2 border-gray-900' : 'text-[#0f0f0f] border-b-2 border-[#0f0f0f]') : (isGlass ? 'text-gray-500 hover:text-gray-700' : 'text-[#999] hover:text-[#666]')}`}>
+                  <Icon className="w-3.5 h-3.5" /> {t.label}
+                  {t.badge && t.badge > 0 ? <span className="ml-0.5 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{t.badge}</span> : null}
+                </button>
+              ); })}
+            </div>
             <div className="p-5 overflow-y-auto"><AnimatePresence mode="wait">{content}</AnimatePresence></div>
           </motion.div>
         </motion.div>
@@ -751,32 +415,21 @@ export default function SettingsPanel({
   );
 }
 
-function Field({ label, hint, icon: Icon, children }: { label: string; hint: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode; }) {
+// ── Helper Components ──
+
+function Field({ label, hint, icon: Icon, children }: { label: string; hint: string; icon: React.ComponentType<{ className?: string }>; children: React.ReactNode }) {
   const { theme } = useTheme();
-  const isGlass = theme === 'glass';
-  return <div className={`p-4 rounded-xl ${isGlass ? 'bg-gray-900/5 border border-gray-200/50' : 'bg-[#fafafa] border border-[#e5e5e5]'}`}><div className="flex items-center justify-between gap-3"><div className="flex-1"><div className="flex items-center gap-2"><Icon className={`w-3.5 h-3.5 ${isGlass ? 'text-gray-400' : 'text-[#999]'}`} /><label className={`text-sm font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>{label}</label></div><p className={`text-xs mt-0.5 ml-5 ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>{hint}</p></div><div className="w-32">{children}</div></div></div>;
+  const g = theme === 'glass';
+  return <div className={`p-4 rounded-xl ${g ? 'bg-gray-900/5 border border-gray-200/50' : 'bg-[#fafafa] border border-[#e5e5e5]'}`}><div className="flex items-center justify-between gap-3"><div className="flex-1"><div className="flex items-center gap-2"><Icon className={`w-3.5 h-3.5 ${g ? 'text-gray-400' : 'text-[#999]'}`} /><label className={`text-sm font-bold ${g ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>{label}</label></div><p className={`text-xs mt-0.5 ml-5 ${g ? 'text-gray-400' : 'text-[#999]'}`}>{hint}</p></div><div className="w-32">{children}</div></div></div>;
 }
 
-function PasswordInput({ label, value, onChange, show, onToggle }: { label: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void; }) {
+function PwInput({ label, value, onChange, show, onToggle }: { label: string; value: string; onChange: (v: string) => void; show: boolean; onToggle: () => void }) {
   const { theme } = useTheme();
-  const isGlass = theme === 'glass';
-  const cls = isGlass ? 'w-full pl-3 pr-10 py-2.5 rounded-xl bg-gray-50 border border-gray-200/80 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10' : 'w-full pl-3 pr-10 py-2 border border-[#e5e5e5] rounded-lg bg-white text-sm focus:outline-none focus:border-[#0f0f0f]';
-  return <div>{label && <label className={`block text-xs font-semibold mb-1 ${isGlass ? 'text-gray-500' : 'text-[#666]'}`}>{label}</label>}<div className="relative"><input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} className={cls} /><button type="button" onClick={onToggle} className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${isGlass ? 'text-gray-400' : 'text-[#999]'}`}>{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>;
+  const g = theme === 'glass';
+  const cls = g ? 'w-full pl-3 pr-10 py-2.5 rounded-xl bg-gray-50 border border-gray-200/80 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/10' : 'w-full pl-3 pr-10 py-2 border border-[#e5e5e5] rounded-lg bg-white text-sm focus:outline-none focus:border-[#0f0f0f]';
+  return <div>{label && <label className={`block text-xs font-semibold mb-1 ${g ? 'text-gray-500' : 'text-[#666]'}`}>{label}</label>}<div className="relative"><input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={label || 'Password'} className={cls} /><button type="button" onClick={onToggle} className={`absolute right-2.5 top-1/2 -translate-y-1/2 ${g ? 'text-gray-400' : 'text-[#999]'}`}>{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div></div>;
 }
 
-function MessageBanner({ message }: { message: { type: 'success' | 'error'; text: string } }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -5 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`text-sm font-medium rounded-lg px-3 py-2.5 flex items-center gap-2 ${
-        message.type === 'success'
-          ? 'bg-green-50 text-green-700 border border-green-200'
-          : 'bg-red-50 text-red-600 border border-red-200'
-      }`}
-    >
-      {message.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-      {message.text}
-    </motion.div>
-  );
+function UsersList({ users, headCls, labelCls, cardCls, isGlass }: { users: Array<{ key: string; display: string; role: UserRole }>; headCls: string; labelCls: string; cardCls: string; isGlass: boolean }) {
+  return <div className={cardCls}><h3 className={`text-xs font-bold mb-2 ${headCls}`}>Users</h3><div className="space-y-1">{users.map(u => (<div key={u.key} className={`flex items-center justify-between px-3 py-2 rounded text-xs ${isGlass ? 'bg-white/50' : 'bg-white'}`}><div><span className={`font-semibold ${headCls}`}>{u.display}</span><span className={`ml-1.5 ${labelCls}`}>({u.key})</span></div><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${u.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>{u.role}</span></div>))}</div></div>;
 }

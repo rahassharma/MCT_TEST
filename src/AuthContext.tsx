@@ -1,14 +1,10 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { isSupabaseConfigured } from './db/config';
 import {
-  fetchCloudUsers,
-  saveCloudPassword,
-  saveCloudUser,
-  updateCloudUsername,
-  updateCloudUserRole,
-  deleteCloudUser,
+  fetchCloudUsers, saveCloudPassword, saveCloudUser,
+  updateCloudUsername, updateCloudUserRole, deleteCloudUser,
 } from './db/sync';
-import type { PasswordResetRequest } from './types';
+import type { UserRequest, PasswordResetRequest, RecommendUserRequest, SuggestionRequest, AdminNotification } from './types';
 
 export type UserRole = 'admin' | 'user';
 
@@ -31,11 +27,20 @@ interface AuthContextValue {
   changeUsername: (userKey: string, newDisplay: string) => Promise<{ success: boolean; error?: string }>;
   changeUserRole: (userKey: string, newRole: UserRole) => Promise<{ success: boolean; error?: string }>;
   removeUser: (userKey: string) => Promise<{ success: boolean; error?: string }>;
-  // Password reset requests
+  // Requests
   submitPasswordReset: (userKey: string, desiredPassword: string) => { success: boolean; error?: string };
-  getPendingResets: () => PasswordResetRequest[];
-  getAllResets: () => PasswordResetRequest[];
-  resolveReset: (id: string, status: 'approved' | 'rejected', finalPassword?: string) => Promise<boolean>;
+  submitRecommendUser: (recommendedKey: string, recommendedDisplay: string, recommendedPassword: string) => { success: boolean; error?: string };
+  submitSuggestion: (message: string) => { success: boolean; error?: string };
+  getPendingRequests: () => UserRequest[];
+  getAllRequests: () => UserRequest[];
+  getUserRequests: (userKey: string) => UserRequest[];
+  resolveRequest: (id: string, status: 'approved' | 'rejected', extra?: { finalPassword?: string; adminReply?: string }) => Promise<boolean>;
+  // Notifications
+  sendNotification: (targetUserKey: string, message: string, type: 'warning' | 'info' | 'success') => void;
+  getNotificationsForUser: (userKey: string) => AdminNotification[];
+  getUnreadCount: (userKey: string) => number;
+  markAsRead: (notifId: string, userKey: string) => void;
+  getAllNotifications: () => AdminNotification[];
 }
 
 const DEFAULT_USERS: Record<string, { password: string; role: UserRole; display: string }> = {
@@ -44,104 +49,74 @@ const DEFAULT_USERS: Record<string, { password: string; role: UserRole; display:
 };
 
 const PASSWORDS_KEY = 'screentime_passwords';
-const RESETS_KEY = 'screentime_password_resets';
+const REQUESTS_KEY = 'screentime_requests';
+const NOTIFS_KEY = 'screentime_notifications';
 
 function loadPasswords(): Record<string, { password: string; role: UserRole; display: string }> {
-  try {
-    const saved = localStorage.getItem(PASSWORDS_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      return { ...DEFAULT_USERS, ...parsed };
-    }
-  } catch {}
+  try { const s = localStorage.getItem(PASSWORDS_KEY); if (s) return { ...DEFAULT_USERS, ...JSON.parse(s) }; } catch {}
   return { ...DEFAULT_USERS };
 }
-
-function savePasswords(passwords: Record<string, { password: string; role: UserRole; display: string }>): void {
-  try {
-    localStorage.setItem(PASSWORDS_KEY, JSON.stringify(passwords));
-  } catch {}
+function savePasswords(p: Record<string, { password: string; role: UserRole; display: string }>): void {
+  try { localStorage.setItem(PASSWORDS_KEY, JSON.stringify(p)); } catch {}
 }
-
-function loadResets(): PasswordResetRequest[] {
-  try {
-    const saved = localStorage.getItem(RESETS_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {}
+function loadRequests(): UserRequest[] {
+  try { const s = localStorage.getItem(REQUESTS_KEY); if (s) return JSON.parse(s); } catch {}
   return [];
 }
-
-function saveResets(resets: PasswordResetRequest[]): void {
-  try {
-    localStorage.setItem(RESETS_KEY, JSON.stringify(resets));
-  } catch {}
+function saveRequests(r: UserRequest[]): void {
+  try { localStorage.setItem(REQUESTS_KEY, JSON.stringify(r)); } catch {}
+}
+function loadNotifs(): AdminNotification[] {
+  try { const s = localStorage.getItem(NOTIFS_KEY); if (s) return JSON.parse(s); } catch {}
+  return [];
+}
+function saveNotifs(n: AdminNotification[]): void {
+  try { localStorage.setItem(NOTIFS_KEY, JSON.stringify(n)); } catch {}
 }
 
 export function verifyAdminPassword(password: string): boolean {
-  const passwords = loadPasswords();
-  return passwords.admin?.password === password;
+  return loadPasswords().admin?.password === password;
 }
 
 const AuthContext = createContext<AuthContextValue>({
-  user: null,
-  login: async () => ({ success: false }),
-  logout: () => {},
-  isAdmin: false,
-  verifyPassword: () => false,
-  changePassword: async () => false,
-  getUserDisplay: () => '',
-  getAllUsers: () => [],
-  addUser: async () => ({ success: false }),
-  changeUsername: async () => ({ success: false }),
-  changeUserRole: async () => ({ success: false }),
-  removeUser: async () => ({ success: false }),
-  submitPasswordReset: () => ({ success: false }),
-  getPendingResets: () => [],
-  getAllResets: () => [],
-  resolveReset: async () => false,
+  user: null, login: async () => ({ success: false }), logout: () => {}, isAdmin: false,
+  verifyPassword: () => false, changePassword: async () => false, getUserDisplay: () => '', getAllUsers: () => [],
+  addUser: async () => ({ success: false }), changeUsername: async () => ({ success: false }),
+  changeUserRole: async () => ({ success: false }), removeUser: async () => ({ success: false }),
+  submitPasswordReset: () => ({ success: false }), submitRecommendUser: () => ({ success: false }),
+  submitSuggestion: () => ({ success: false }), getPendingRequests: () => [], getAllRequests: () => [],
+  getUserRequests: () => [], resolveRequest: async () => false,
+  sendNotification: () => {}, getNotificationsForUser: () => [], getUnreadCount: () => 0,
+  markAsRead: () => {}, getAllNotifications: () => [],
 });
 
 function loadUser(): User | null {
-  try {
-    const saved = localStorage.getItem('screentime_user');
-    if (saved) return JSON.parse(saved);
-  } catch {}
+  try { const s = localStorage.getItem('screentime_user'); if (s) return JSON.parse(s); } catch {}
   return null;
 }
-
-function saveUser(user: User | null) {
-  try {
-    if (user) localStorage.setItem('screentime_user', JSON.stringify(user));
-    else localStorage.removeItem('screentime_user');
-  } catch {}
+function saveUser(u: User | null) {
+  try { if (u) localStorage.setItem('screentime_user', JSON.stringify(u)); else localStorage.removeItem('screentime_user'); } catch {}
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(loadUser);
-  const [, setResetVersion] = useState(0);
+  const [, setVer] = useState(0);
+  const bump = () => setVer(v => v + 1);
 
   const login = useCallback(async (username: string, password: string, confirm: string): Promise<{ success: boolean; error?: string }> => {
     if (!password.trim() || !confirm.trim()) return { success: false, error: 'Please fill in all fields' };
     if (password !== confirm) return { success: false, error: 'Passwords do not match' };
-
     const key = username.toLowerCase().trim();
     let passwords = loadPasswords();
-
     if (isSupabaseConfigured()) {
-      const cloudUsers = await fetchCloudUsers();
-      if (cloudUsers && Object.keys(cloudUsers).length > 0) {
-        passwords = { ...passwords, ...cloudUsers };
-        savePasswords(passwords);
-      }
+      const cloud = await fetchCloudUsers();
+      if (cloud && Object.keys(cloud).length > 0) { passwords = { ...passwords, ...cloud }; savePasswords(passwords); }
     }
-
     const entry = passwords[key];
     if (!entry) return { success: false, error: 'User not found' };
     if (entry.password !== password) return { success: false, error: 'Incorrect password' };
-
     const u: User = { username: entry.display, role: entry.role, key };
-    setUser(u);
-    saveUser(u);
+    setUser(u); saveUser(u);
     return { success: true };
   }, []);
 
@@ -149,167 +124,174 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyPassword = useCallback((password: string): boolean => {
     if (!user) return false;
-    const passwords = loadPasswords();
-    const entry = passwords[user.key];
-    return !!entry && entry.password === password;
+    const e = loadPasswords()[user.key];
+    return !!e && e.password === password;
   }, [user]);
 
   const changePassword = useCallback(async (userKey: string, newPassword: string): Promise<boolean> => {
-    const passwords = loadPasswords();
-    if (!passwords[userKey]) return false;
-    if (isSupabaseConfigured()) {
-      const cloudOk = await saveCloudPassword(userKey, newPassword);
-      if (!cloudOk) return false;
-    }
-    passwords[userKey] = { ...passwords[userKey], password: newPassword };
-    savePasswords(passwords);
-    return true;
+    const p = loadPasswords(); if (!p[userKey]) return false;
+    if (isSupabaseConfigured()) { if (!(await saveCloudPassword(userKey, newPassword))) return false; }
+    p[userKey] = { ...p[userKey], password: newPassword }; savePasswords(p); return true;
   }, []);
 
   const addUser = useCallback(async (key: string, display: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
-    const normalizedKey = key.toLowerCase().trim();
-    if (!normalizedKey) return { success: false, error: 'Username key cannot be empty' };
-    if (!display.trim()) return { success: false, error: 'Display name cannot be empty' };
-    if (!password.trim()) return { success: false, error: 'Password cannot be empty' };
-    if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
-    const passwords = loadPasswords();
-    if (passwords[normalizedKey]) return { success: false, error: 'User already exists' };
-    if (isSupabaseConfigured()) {
-      const cloudOk = await saveCloudUser(normalizedKey, display.trim(), role, password);
-      if (!cloudOk) return { success: false, error: 'Failed to save to cloud' };
-    }
-    passwords[normalizedKey] = { password, role, display: display.trim() };
-    savePasswords(passwords);
+    const k = key.toLowerCase().trim();
+    if (!k || !display.trim() || !password.trim()) return { success: false, error: 'All fields required' };
+    if (password.length < 6) return { success: false, error: 'Min 6 characters' };
+    const p = loadPasswords(); if (p[k]) return { success: false, error: 'User already exists' };
+    if (isSupabaseConfigured()) { if (!(await saveCloudUser(k, display.trim(), role, password))) return { success: false, error: 'Cloud save failed' }; }
+    p[k] = { password, role, display: display.trim() }; savePasswords(p);
     return { success: true };
   }, []);
 
   const changeUsername = useCallback(async (userKey: string, newDisplay: string): Promise<{ success: boolean; error?: string }> => {
-    if (!newDisplay.trim()) return { success: false, error: 'Display name cannot be empty' };
-    const passwords = loadPasswords();
-    if (!passwords[userKey]) return { success: false, error: 'User not found' };
-    if (isSupabaseConfigured()) {
-      const cloudOk = await updateCloudUsername(userKey, newDisplay.trim());
-      if (!cloudOk) return { success: false, error: 'Failed to update in cloud' };
-    }
-    passwords[userKey] = { ...passwords[userKey], display: newDisplay.trim() };
-    savePasswords(passwords);
-    if (user && user.key === userKey) {
-      const updated = { ...user, username: newDisplay.trim() };
-      setUser(updated);
-      saveUser(updated);
-    }
+    if (!newDisplay.trim()) return { success: false, error: 'Name required' };
+    const p = loadPasswords(); if (!p[userKey]) return { success: false, error: 'Not found' };
+    if (isSupabaseConfigured()) { if (!(await updateCloudUsername(userKey, newDisplay.trim()))) return { success: false, error: 'Cloud failed' }; }
+    p[userKey] = { ...p[userKey], display: newDisplay.trim() }; savePasswords(p);
+    if (user?.key === userKey) { const u = { ...user, username: newDisplay.trim() }; setUser(u); saveUser(u); }
     return { success: true };
   }, [user]);
 
   const changeUserRole = useCallback(async (userKey: string, newRole: UserRole): Promise<{ success: boolean; error?: string }> => {
-    if (userKey === 'admin') return { success: false, error: 'Cannot change the admin role' };
-    const passwords = loadPasswords();
-    if (!passwords[userKey]) return { success: false, error: 'User not found' };
-    if (isSupabaseConfigured()) {
-      const cloudOk = await updateCloudUserRole(userKey, newRole);
-      if (!cloudOk) return { success: false, error: 'Failed to update in cloud' };
-    }
-    passwords[userKey] = { ...passwords[userKey], role: newRole };
-    savePasswords(passwords);
+    if (userKey === 'admin') return { success: false, error: 'Cannot change admin' };
+    const p = loadPasswords(); if (!p[userKey]) return { success: false, error: 'Not found' };
+    if (isSupabaseConfigured()) { if (!(await updateCloudUserRole(userKey, newRole))) return { success: false, error: 'Cloud failed' }; }
+    p[userKey] = { ...p[userKey], role: newRole }; savePasswords(p);
     return { success: true };
   }, []);
 
   const removeUser = useCallback(async (userKey: string): Promise<{ success: boolean; error?: string }> => {
     if (userKey === 'admin') return { success: false, error: 'Cannot delete admin' };
-    const passwords = loadPasswords();
-    if (!passwords[userKey]) return { success: false, error: 'User not found' };
-    if (isSupabaseConfigured()) {
-      const cloudOk = await deleteCloudUser(userKey);
-      if (!cloudOk) return { success: false, error: 'Failed to delete from cloud' };
-    }
-    delete passwords[userKey];
-    savePasswords(passwords);
+    const p = loadPasswords(); if (!p[userKey]) return { success: false, error: 'Not found' };
+    if (isSupabaseConfigured()) { if (!(await deleteCloudUser(userKey))) return { success: false, error: 'Cloud failed' }; }
+    delete p[userKey]; savePasswords(p);
     return { success: true };
   }, []);
 
-  // ── Password Reset Requests ──
+  // ── Requests ──
 
   const submitPasswordReset = useCallback((userKey: string, desiredPassword: string): { success: boolean; error?: string } => {
-    if (!desiredPassword.trim()) return { success: false, error: 'Password cannot be empty' };
-    if (desiredPassword.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
-
-    const passwords = loadPasswords();
-    if (!passwords[userKey]) return { success: false, error: 'User not found' };
-    if (passwords[userKey].role === 'admin') return { success: false, error: 'Admin cannot use forgot password' };
-
-    const resets = loadResets();
-    const existing = resets.find(r => r.userKey === userKey && r.status === 'pending');
-    if (existing) return { success: false, error: 'A reset request is already pending' };
-
+    if (!desiredPassword.trim() || desiredPassword.length < 6) return { success: false, error: 'Password min 6 chars' };
+    const p = loadPasswords(); if (!p[userKey]) return { success: false, error: 'User not found' };
+    if (p[userKey].role === 'admin') return { success: false, error: 'Admin cannot use this' };
+    const reqs = loadRequests();
+    // Allow re-submit even after rejection — only block if there's a PENDING one
+    if (reqs.find(r => r.type === 'password_reset' && (r as PasswordResetRequest).userKey === userKey && r.status === 'pending'))
+      return { success: false, error: 'A request is already pending' };
     const req: PasswordResetRequest = {
       id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      type: 'password_reset',
-      userKey,
-      userDisplay: passwords[userKey].display,
-      desiredPassword,
-      timestamp: new Date().toISOString(),
-      status: 'pending',
+      type: 'password_reset', userKey, userDisplay: p[userKey].display,
+      desiredPassword, timestamp: new Date().toISOString(), status: 'pending',
     };
-    resets.push(req);
-    saveResets(resets);
-    setResetVersion(v => v + 1);
+    reqs.push(req); saveRequests(reqs); bump();
     return { success: true };
   }, []);
 
-  const getPendingResets = useCallback((): PasswordResetRequest[] => {
-    return loadResets().filter(r => r.status === 'pending');
-  }, []);
+  const submitRecommendUser = useCallback((recommendedKey: string, recommendedDisplay: string, recommendedPassword: string): { success: boolean; error?: string } => {
+    if (!user) return { success: false, error: 'Not logged in' };
+    const k = recommendedKey.toLowerCase().trim();
+    if (!k || !recommendedDisplay.trim() || !recommendedPassword.trim()) return { success: false, error: 'All fields required' };
+    if (recommendedPassword.length < 6) return { success: false, error: 'Password min 6 chars' };
+    const p = loadPasswords(); if (p[k]) return { success: false, error: 'User key already exists' };
+    const reqs = loadRequests();
+    if (reqs.find(r => r.type === 'recommend_user' && (r as RecommendUserRequest).recommendedKey === k && r.status === 'pending'))
+      return { success: false, error: 'Already recommended' };
+    const req: RecommendUserRequest = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type: 'recommend_user', userKey: user.key, userDisplay: user.username,
+      recommendedKey: k, recommendedDisplay: recommendedDisplay.trim(),
+      recommendedPassword, timestamp: new Date().toISOString(), status: 'pending',
+    };
+    reqs.push(req); saveRequests(reqs); bump();
+    return { success: true };
+  }, [user]);
 
-  const getAllResets = useCallback((): PasswordResetRequest[] => {
-    return loadResets();
-  }, []);
+  const submitSuggestion = useCallback((message: string): { success: boolean; error?: string } => {
+    if (!user) return { success: false, error: 'Not logged in' };
+    if (!message.trim()) return { success: false, error: 'Message required' };
+    const req: SuggestionRequest = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type: 'suggestion', userKey: user.key, userDisplay: user.username,
+      message: message.trim(), timestamp: new Date().toISOString(), status: 'pending',
+    };
+    const reqs = loadRequests(); reqs.push(req); saveRequests(reqs); bump();
+    return { success: true };
+  }, [user]);
 
-  const resolveReset = useCallback(async (id: string, status: 'approved' | 'rejected', finalPassword?: string): Promise<boolean> => {
-    const resets = loadResets();
-    const idx = resets.findIndex(r => r.id === id);
-    if (idx === -1) return false;
+  const getPendingRequests = useCallback((): UserRequest[] => loadRequests().filter(r => r.status === 'pending'), []);
+  const getAllRequests = useCallback((): UserRequest[] => loadRequests(), []);
+  const getUserRequests = useCallback((userKey: string): UserRequest[] => loadRequests().filter(r => r.userKey === userKey), []);
 
-    resets[idx].status = status;
-    resets[idx].resolvedAt = new Date().toISOString();
-    resets[idx].resolvedBy = user?.key || 'admin';
+  const resolveRequest = useCallback(async (id: string, status: 'approved' | 'rejected', extra?: { finalPassword?: string; adminReply?: string }): Promise<boolean> => {
+    const reqs = loadRequests();
+    const idx = reqs.findIndex(r => r.id === id); if (idx === -1) return false;
+    const req = reqs[idx];
+    req.status = status;
+    req.resolvedAt = new Date().toISOString();
+    req.resolvedBy = user?.key || 'admin';
 
     if (status === 'approved') {
-      // Use finalPassword if admin edited it, otherwise use the user's desired password
-      const newPw = finalPassword || resets[idx].desiredPassword;
-      const ok = await changePassword(resets[idx].userKey, newPw);
-      if (!ok) return false;
+      if (req.type === 'password_reset') {
+        const pw = extra?.finalPassword || (req as PasswordResetRequest).desiredPassword;
+        if (!(await changePassword(req.userKey, pw))) return false;
+      }
+      if (req.type === 'recommend_user') {
+        const r = req as RecommendUserRequest;
+        const result = await addUser(r.recommendedKey, r.recommendedDisplay, r.recommendedPassword, 'user');
+        if (!result.success) return false;
+      }
+      if (req.type === 'suggestion' && extra?.adminReply) {
+        (req as SuggestionRequest).adminReply = extra.adminReply;
+      }
     }
 
-    saveResets(resets);
-    setResetVersion(v => v + 1);
+    saveRequests(reqs); bump();
     return true;
-  }, [user, changePassword]);
+  }, [user, changePassword, addUser]);
 
-  const getUserDisplay = useCallback((userKey: string): string => {
-    const passwords = loadPasswords();
-    return passwords[userKey]?.display || userKey;
+  // ── Notifications ──
+
+  const sendNotification = useCallback((targetUserKey: string, message: string, type: 'warning' | 'info' | 'success') => {
+    const notif: AdminNotification = {
+      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      targetUserKey, fromAdmin: user?.key || 'admin',
+      message, type, timestamp: new Date().toISOString(), readBy: [],
+    };
+    const notifs = loadNotifs(); notifs.push(notif); saveNotifs(notifs); bump();
+  }, [user]);
+
+  const getNotificationsForUser = useCallback((userKey: string): AdminNotification[] => {
+    return loadNotifs().filter(n => n.targetUserKey === userKey || n.targetUserKey === 'all').reverse();
   }, []);
 
-  const getAllUsers = useCallback((): Array<{ key: string; display: string; role: UserRole }> => {
-    const passwords = loadPasswords();
-    return Object.entries(passwords).map(([key, val]) => ({
-      key, display: val.display, role: val.role,
-    }));
+  const getUnreadCount = useCallback((userKey: string): number => {
+    return loadNotifs().filter(n => (n.targetUserKey === userKey || n.targetUserKey === 'all') && !n.readBy.includes(userKey)).length;
   }, []);
 
+  const markAsRead = useCallback((notifId: string, userKey: string) => {
+    const notifs = loadNotifs();
+    const n = notifs.find(x => x.id === notifId);
+    if (n && !n.readBy.includes(userKey)) { n.readBy.push(userKey); saveNotifs(notifs); bump(); }
+  }, []);
+
+  const getAllNotifications = useCallback((): AdminNotification[] => loadNotifs().reverse(), []);
+
+  const getUserDisplay = useCallback((userKey: string): string => loadPasswords()[userKey]?.display || userKey, []);
+  const getAllUsers = useCallback(() => Object.entries(loadPasswords()).map(([key, val]) => ({ key, display: val.display, role: val.role })), []);
   const isAdmin = user?.role === 'admin';
 
   return (
     <AuthContext.Provider value={{
       user, login, logout, isAdmin, verifyPassword, changePassword,
       getUserDisplay, getAllUsers, addUser, changeUsername, changeUserRole, removeUser,
-      submitPasswordReset, getPendingResets, getAllResets, resolveReset,
+      submitPasswordReset, submitRecommendUser, submitSuggestion,
+      getPendingRequests, getAllRequests, getUserRequests, resolveRequest,
+      sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
     }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export function useAuth() { return useContext(AuthContext); }
