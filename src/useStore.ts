@@ -149,15 +149,10 @@ export function useStore(userKey: string | null) {
 
     for (const dateKey of dates) {
       const data = dailyData[dateKey];
-      const screenTime = data.spell1 + data.spell2 + data.spell3 + (data.singleTime || 0);
-      const deviceTime = Object.values(data.devices || {}).reduce((s: number, v) => s + (v as number), 0);
-      const total = screenTime + deviceTime;
+      const total = data.spell1 + data.spell2 + data.spell3;
       const effectiveLimit = getEffectiveLimit(blocked[dateKey], maxTime);
-      const adjustedLimit = effectiveLimit + (data.bonusMinutes || 0) - (data.penaltyMinutes || 0);
-      const excess = Math.max(0, total - adjustedLimit);
-      const autoPenalty = Math.round(excess * penaltyRatio);
-      const manualPenalty = data.penaltyMinutes || 0;
-      const penalty = autoPenalty + manualPenalty;
+      const excess = Math.max(0, total - effectiveLimit);
+      const penalty = Math.round(excess * penaltyRatio);
 
       if (penalty > 0) {
         const nextDate = new Date(dateKey + 'T00:00:00');
@@ -251,14 +246,11 @@ export function useStore(userKey: string | null) {
 
   const getPenaltyInfo = useCallback((dateKey: string): PenaltyInfo => {
     const data = getDailyData(dateKey);
-    const screenTime = data.spell1 + data.spell2 + data.spell3 + (data.singleTime || 0);
-      const deviceTime = Object.values(data.devices || {}).reduce((s: number, v) => s + (v as number), 0);
-      const total = screenTime + deviceTime;
+    const total = data.spell1 + data.spell2 + data.spell3;
     const blockVal = state.blockedDates[dateKey];
     const effectiveLimit = getEffectiveLimit(blockVal, state.settings.maxTime);
-    const adjustedLimit = effectiveLimit + (data.bonusMinutes || 0) - (data.penaltyMinutes || 0);
-    const bonusTime = Math.max(0, adjustedLimit - total);
-    const excessTime = Math.max(0, total - adjustedLimit);
+    const bonusTime = Math.max(0, effectiveLimit - total);
+    const excessTime = Math.max(0, total - effectiveLimit);
     const penaltyMinutes = Math.round(excessTime * state.settings.penaltyRatio);
     const isFullBlock = penaltyMinutes >= state.settings.fullBlockThreshold;
     const carryForward = isFullBlock ? penaltyMinutes - state.settings.fullBlockThreshold : 0;
@@ -357,18 +349,15 @@ export function useStore(userKey: string | null) {
 function getPenaltyInfoInternal(
   dateKey: string,
   blockedDates: Record<string, number>,
-  dailyData: Record<string, DailyData>,
+  dailyData: Record<string, { spell1: number; spell2: number; spell3: number }>,
   settings: AppSettings
 ) {
   const data = dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0 };
-  const screenTime = data.spell1 + data.spell2 + data.spell3 + (data.singleTime || 0);
-      const deviceTime = Object.values(data.devices || {}).reduce((s: number, v) => s + (v as number), 0);
-      const total = screenTime + deviceTime;
+  const total = data.spell1 + data.spell2 + data.spell3;
   const blockVal = blockedDates[dateKey];
   const effectiveLimit = getEffectiveLimit(blockVal, settings.maxTime);
-  const adjustedLimit = effectiveLimit + (data.bonusMinutes || 0) - (data.penaltyMinutes || 0);
-    const bonusTime = Math.max(0, adjustedLimit - total);
-  const excessTime = Math.max(0, total - adjustedLimit);
+  const bonusTime = Math.max(0, effectiveLimit - total);
+  const excessTime = Math.max(0, total - effectiveLimit);
   const penaltyMinutes = Math.round(excessTime * settings.penaltyRatio);
   return { totalTime: total, effectiveLimit, bonusTime, excessTime, penaltyMinutes };
 }
