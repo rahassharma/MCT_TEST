@@ -8,7 +8,6 @@ interface DeviceUsagePanelProps {
   userKey: string | null;
 }
 
-// Friendly app name map
 const APP_NAMES: Record<string, string> = {
   'com.mojang.minecraftpe': '🎮 Minecraft',
   'com.google.android.youtube': '▶️ YouTube',
@@ -24,7 +23,6 @@ const APP_NAMES: Record<string, string> = {
 
 function friendlyName(pkg: string): string {
   if (APP_NAMES[pkg]) return APP_NAMES[pkg];
-  // Extract readable name from package
   const parts = pkg.split('.');
   const last = parts[parts.length - 1];
   return last.charAt(0).toUpperCase() + last.slice(1);
@@ -41,15 +39,19 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
   const loadData = async () => {
     if (!userKey) return;
     setLoading(true);
-    const rows = await fetchDeviceUsage(userKey);
-    setData(rows);
-    setLastFetched(new Date());
+    try {
+      const rows = await fetchDeviceUsage(userKey);
+      setData(rows);
+      setLastFetched(new Date());
+    } catch (err) {
+      console.warn('Device usage fetch failed (table may not exist yet):', err);
+      setData([]);
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-    // Refresh every 5 minutes
     const interval = setInterval(loadData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [userKey]);
@@ -90,13 +92,12 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
           <div className="text-center py-8">
             <WifiOff className="w-8 h-8 text-[#ccc] mx-auto mb-3" />
             <p className="text-sm text-[#999]">No device data yet</p>
-            <p className="text-xs text-[#bbb] mt-1">Install MC Tracker on the phone to start syncing</p>
+            <p className="text-xs text-[#bbb] mt-1">Install the tracker app on the phone to start syncing</p>
           </div>
         )}
 
         {hasToday && todayData && (
           <>
-            {/* Today's total */}
             <div className={`text-center p-4 rounded-xl mb-4 ${todayData.minutes_played > 60 ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
               <div className={`text-3xl font-bold ${todayData.minutes_played > 60 ? 'text-red-500' : 'text-blue-600'}`}>
                 {todayData.minutes_played}
@@ -104,22 +105,22 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
               <div className="text-xs text-[#666] mt-1">minutes on phone today</div>
             </div>
 
-            {/* Per-app breakdown */}
             {todayData.app_breakdown && Object.keys(todayData.app_breakdown).length > 0 && (
               <div className="space-y-2 mb-4">
                 {Object.entries(todayData.app_breakdown)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([pkg, mins], i) => {
-                    const maxMins = Math.max(...Object.values(todayData.app_breakdown!));
-                    const pct = maxMins > 0 ? (mins / maxMins) * 100 : 0;
+                  .sort(([, a], [, b]) => (b as number) - (a as number))
+                  .map(([pkg, mins], idx) => {
+                    const m = mins as number;
+                    const maxMins = Math.max(...Object.values(todayData.app_breakdown!).map(v => v as number));
+                    const pct = maxMins > 0 ? (m / maxMins) * 100 : 0;
                     return (
                       <div key={pkg} className="flex items-center gap-3">
                         <div className="w-28 text-xs font-semibold text-[#0f0f0f] truncate">{friendlyName(pkg)}</div>
                         <div className="flex-1 bg-[#f0f0f0] rounded-full h-5 overflow-hidden">
-                          <div className={`h-full rounded-full bg-gradient-to-r ${barColors[i % barColors.length]}`}
-                            style={{ width: `${pct}%`, minWidth: mins > 0 ? '8px' : '0' }} />
+                          <div className={`h-full rounded-full bg-gradient-to-r ${barColors[idx % barColors.length]}`}
+                            style={{ width: `${pct}%`, minWidth: m > 0 ? '8px' : '0' }} />
                         </div>
-                        <div className="w-12 text-right text-xs font-bold text-[#333]">{mins}m</div>
+                        <div className="w-12 text-right text-xs font-bold text-[#333]">{m}m</div>
                       </div>
                     );
                   })}
@@ -128,12 +129,11 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
           </>
         )}
 
-        {/* Weekly mini chart */}
         {hasData && (
           <div className="border-t border-[#e5e5e5] pt-4 mt-4">
             <p className="text-xs font-semibold text-[#999] uppercase tracking-wider mb-3">Last 7 Days</p>
             <div className="flex items-end gap-2" style={{ height: '80px' }}>
-              {data.slice().reverse().map((row, i) => {
+              {data.slice().reverse().map((row, _i) => {
                 const maxMins = Math.max(...data.map(d => d.minutes_played), 60);
                 const h = maxMins > 0 ? (row.minutes_played / maxMins) * 100 : 0;
                 const day = new Date(row.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' });
@@ -190,7 +190,6 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
 
       {hasToday && todayData && (
         <>
-          {/* Today ring */}
           <div className="flex flex-col items-center mb-5">
             <div className="relative w-28 h-28 mb-3">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
@@ -213,28 +212,28 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
             </div>
           </div>
 
-          {/* Per-app bars */}
           {todayData.app_breakdown && Object.keys(todayData.app_breakdown).length > 0 && (
             <div className="space-y-2.5 mb-5">
               {Object.entries(todayData.app_breakdown)
-                .sort(([, a], [, b]) => b - a)
-                .map(([pkg, mins], i) => {
-                  const maxMins = Math.max(...Object.values(todayData.app_breakdown!));
-                  const pct = maxMins > 0 ? (mins / maxMins) * 100 : 0;
+                .sort(([, a], [, b]) => (b as number) - (a as number))
+                .map(([pkg, mins], idx) => {
+                  const m = mins as number;
+                  const maxMins = Math.max(...Object.values(todayData.app_breakdown!).map(v => v as number));
+                  const pct = maxMins > 0 ? (m / maxMins) * 100 : 0;
                   return (
                     <motion.div key={pkg} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
+                      transition={{ delay: idx * 0.05 }}
                       className="flex items-center gap-3">
                       <div className="w-28 text-xs font-semibold text-gray-700 truncate">{friendlyName(pkg)}</div>
                       <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${pct}%` }}
-                          transition={{ duration: 0.6, delay: i * 0.1 }}
-                          className={`h-full rounded-full bg-gradient-to-r ${barColors[i % barColors.length]}`}
-                          style={{ minWidth: mins > 0 ? '8px' : '0' }} />
+                          transition={{ duration: 0.6, delay: idx * 0.1 }}
+                          className={`h-full rounded-full bg-gradient-to-r ${barColors[idx % barColors.length]}`}
+                          style={{ minWidth: m > 0 ? '8px' : '0' }} />
                       </div>
-                      <div className="w-12 text-right text-xs font-bold text-gray-600">{mins}m</div>
+                      <div className="w-12 text-right text-xs font-bold text-gray-600">{m}m</div>
                     </motion.div>
                   );
                 })}
@@ -243,7 +242,6 @@ export default function DeviceUsagePanel({ userKey }: DeviceUsagePanelProps) {
         </>
       )}
 
-      {/* Weekly */}
       {hasData && (
         <div className="border-t border-gray-200/50 pt-4 mt-2">
           <div className="flex items-center gap-2 mb-3">

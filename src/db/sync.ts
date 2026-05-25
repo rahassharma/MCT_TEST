@@ -16,14 +16,6 @@ export interface CloudUser {
   updated_at?: string;
 }
 
-export interface DeviceUsageRow {
-  user_key: string;
-  date: string;
-  minutes_played: number;
-  app_breakdown: Record<string, number> | null;
-  last_synced: string;
-}
-
 /** Fetch user data from cloud. */
 export async function fetchUserData(userKey: string): Promise<AppState | null> {
   const client = getSupabaseClient();
@@ -73,30 +65,6 @@ export async function saveUserData(userKey: string, state: AppState): Promise<bo
   } catch (err) {
     console.error('Save exception:', err);
     return false;
-  }
-}
-
-/** Fetch device usage for a user (last 7 days from minecraft_usage table). */
-export async function fetchDeviceUsage(userKey: string): Promise<DeviceUsageRow[]> {
-  const client = getSupabaseClient();
-  if (!client) return [];
-
-  try {
-    const { data, error } = await client
-      .from('minecraft_usage')
-      .select('user_key, date, minutes_played, app_breakdown, last_synced')
-      .eq('user_key', userKey)
-      .order('date', { ascending: false })
-      .limit(7);
-
-    if (error) {
-      console.error('Fetch device usage error:', error);
-      return [];
-    }
-    return (data || []) as DeviceUsageRow[];
-  } catch (err) {
-    console.error('Fetch device usage exception:', err);
-    return [];
   }
 }
 
@@ -268,5 +236,37 @@ export async function testConnection(): Promise<{ ok: boolean; error?: string }>
     return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err) };
+  }
+}
+
+export interface DeviceUsageRow {
+  user_key: string;
+  date: string;
+  minutes_played: number;
+  app_breakdown: Record<string, number> | null;
+  last_synced: string;
+}
+
+/** Fetch device usage for a user (last 7 days from minecraft_usage table). */
+export async function fetchDeviceUsage(userKey: string): Promise<DeviceUsageRow[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  try {
+    const { data, error } = await client
+      .from('minecraft_usage')
+      .select('user_key, date, minutes_played, app_breakdown, last_synced')
+      .eq('user_key', userKey)
+      .order('date', { ascending: false })
+      .limit(7);
+
+    if (error) {
+      console.error('Fetch device usage error:', error);
+      return [];
+    }
+    return (data || []) as DeviceUsageRow[];
+  } catch (err) {
+    console.error('Fetch device usage exception:', err);
+    return [];
   }
 }

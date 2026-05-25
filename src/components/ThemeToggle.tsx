@@ -1,43 +1,46 @@
 import { motion } from 'framer-motion';
-import { Layers, Sparkles, Moon } from 'lucide-react';
+import { Layers, Sparkles } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 
 export default function ThemeToggle() {
-  const { theme, cycleTheme } = useTheme();
-
-  const config = {
-    glass:   { icon: Sparkles, bg: 'linear-gradient(135deg, #e8e0f0, #d8d0e8)', color: 'text-purple-500', label: 'Glass' },
-    classic: { icon: Layers,   bg: 'linear-gradient(135deg, #f0f0f0, #e0e0e0)', color: 'text-gray-700',   label: 'Classic' },
-    dark:    { icon: Moon,     bg: 'linear-gradient(135deg, #2d2d3a, #1a1a2e)', color: 'text-indigo-400',  label: 'Dark' },
-  };
-
-  const c = config[theme];
-  const Icon = c.icon;
+  const { theme, toggleTheme } = useTheme();
+  const isGlass = theme === 'glass';
 
   return (
     <button
-      onClick={cycleTheme}
-      className="relative flex items-center rounded-full cursor-pointer overflow-hidden gap-1.5 pr-2.5"
+      onClick={toggleTheme}
+      className="relative flex items-center rounded-full cursor-pointer overflow-hidden"
       style={{
-        background: c.bg,
+        background: isGlass
+          ? 'linear-gradient(135deg, #e8e0f0, #d8d0e8)'
+          : 'linear-gradient(135deg, #f0f0f0, #e0e0e0)',
+        width: '72px',
         height: '34px',
         padding: '4px',
       }}
-      title={`Theme: ${c.label} — click to switch`}
+      title={`Switch to ${isGlass ? 'Classic' : 'Glass'} theme`}
     >
+      {/* Labels */}
+      <span className={`absolute left-2.5 text-[9px] font-bold uppercase tracking-wide transition-opacity duration-300 ${
+        isGlass ? 'opacity-0' : 'opacity-50'
+      }`}>A</span>
+      <span className={`absolute right-2.5 text-[9px] font-bold uppercase tracking-wide transition-opacity duration-300 ${
+        isGlass ? 'opacity-50' : 'opacity-0'
+      }`}>B</span>
+
+      {/* Knob */}
       <motion.div
-        layout
+        animate={{ x: isGlass ? 0 : 38 }}
         transition={{ type: 'spring', stiffness: 500, damping: 30 }}
         className="relative flex items-center justify-center rounded-full bg-white shadow-md"
         style={{ width: '26px', height: '26px' }}
       >
-        <Icon className={`w-3 h-3 ${c.color}`} />
+        {isGlass ? (
+          <Sparkles className="w-3 h-3 text-purple-500" />
+        ) : (
+          <Layers className="w-3 h-3 text-gray-700" />
+        )}
       </motion.div>
-      <span className={`text-[9px] font-bold uppercase tracking-wide ${
-        theme === 'dark' ? 'text-gray-300' : 'text-gray-500'
-      }`}>
-        {c.label}
-      </span>
     </button>
   );
 }
