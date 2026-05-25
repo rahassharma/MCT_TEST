@@ -27,12 +27,12 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
-  const handleForgotSubmit = () => {
+  const handleForgotSubmit = async () => {
     setForgotError('');
     const key = forgotUser.toLowerCase().trim();
     if (!key) { setForgotError('Enter your username'); return; }
     if (!forgotPw.trim() || forgotPw.length < 6) { setForgotError('Enter a password (min 6 chars)'); return; }
-    const result = submitPasswordReset(key, forgotPw);
+    const result = await submitPasswordReset(key, forgotPw);
     if (result.success) { setForgotSuccess(true); }
     else { setForgotError(result.error || 'Failed'); }
   };

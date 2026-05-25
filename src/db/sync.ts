@@ -1,272 +1,172 @@
 import { getSupabaseClient } from './client';
-import type { AppState } from '../types';
+import type { AppState, UserRequest, AdminNotification } from '../types';
 import type { UserRole } from '../AuthContext';
 
-export interface UserData {
-  user_key: string;
-  state: AppState;
-  updated_at: string;
-}
+export interface UserData { user_key: string; state: AppState; updated_at: string; }
+export interface CloudUser { user_key: string; display: string; role: UserRole; password: string; updated_at?: string; }
+export interface DeviceUsageRow { user_key: string; date: string; minutes_played: number; app_breakdown: Record<string, number> | null; last_synced: string; }
 
-export interface CloudUser {
-  user_key: string;
-  display: string;
-  role: UserRole;
-  password: string;
-  updated_at?: string;
-}
+// ═══════════════════════════════════
+//  USER DATA
+// ═══════════════════════════════════
 
-/** Fetch user data from cloud. */
 export async function fetchUserData(userKey: string): Promise<AppState | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
-  try {
-    const { data, error } = await client
-      .from('user_data')
-      .select('state, updated_at')
-      .eq('user_key', userKey)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') return null;
-      console.error('Fetch error:', error);
-      return null;
-    }
-    return data?.state || null;
-  } catch (err) {
-    console.error('Fetch exception:', err);
-    return null;
-  }
+  const c = getSupabaseClient(); if (!c) return null;
+  try { const { data, error } = await c.from('user_data').select('state, updated_at').eq('user_key', userKey).single(); if (error) { if (error.code === 'PGRST116') return null; return null; } return data?.state || null; } catch { return null; }
 }
 
-/** Save user state to cloud. */
 export async function saveUserData(userKey: string, state: AppState): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
-  try {
-    const { error } = await client
-      .from('user_data')
-      .upsert(
-        {
-          user_key: userKey,
-          state,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_key' }
-      );
-
-    if (error) {
-      console.error('Save error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Save exception:', err);
-    return false;
-  }
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('user_data').upsert({ user_key: userKey, state, updated_at: new Date().toISOString() }, { onConflict: 'user_key' }); return !error; } catch { return false; }
 }
 
-/** Fetch all cloud users for cross-device login. */
+// ═══════════════════════════════════
+//  APP USERS
+// ═══════════════════════════════════
+
 export async function fetchCloudUsers(): Promise<Record<string, { password: string; role: UserRole; display: string }> | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
-  try {
-    const { data, error } = await client
-      .from('app_users')
-      .select('user_key, display, role, password');
-
-    if (error) {
-      console.error('Fetch users error:', error);
-      return null;
-    }
-
-    const map: Record<string, { password: string; role: UserRole; display: string }> = {};
-    for (const row of (data || []) as CloudUser[]) {
-      map[row.user_key] = {
-        password: row.password,
-        role: row.role,
-        display: row.display,
-      };
-    }
-    return map;
-  } catch (err) {
-    console.error('Fetch users exception:', err);
-    return null;
-  }
+  const c = getSupabaseClient(); if (!c) return null;
+  try { const { data, error } = await c.from('app_users').select('user_key, display, role, password'); if (error) return null; const map: Record<string, { password: string; role: UserRole; display: string }> = {}; for (const row of (data || []) as CloudUser[]) { map[row.user_key] = { password: row.password, role: row.role, display: row.display }; } return map; } catch { return null; }
 }
 
-/** Update one user's password in cloud. */
 export async function saveCloudPassword(userKey: string, newPassword: string): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
-  try {
-    const { error } = await client
-      .from('app_users')
-      .update({ password: newPassword, updated_at: new Date().toISOString() })
-      .eq('user_key', userKey);
-
-    if (error) {
-      console.error('Save cloud password error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Save cloud password exception:', err);
-    return false;
-  }
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_users').update({ password: newPassword, updated_at: new Date().toISOString() }).eq('user_key', userKey); return !error; } catch { return false; }
 }
 
-/** Add or upsert a user in the cloud app_users table. */
-export async function saveCloudUser(
-  userKey: string,
-  display: string,
-  role: UserRole,
-  password: string
-): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
-  try {
-    const { error } = await client
-      .from('app_users')
-      .upsert(
-        {
-          user_key: userKey,
-          display,
-          role,
-          password,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_key' }
-      );
-
-    if (error) {
-      console.error('Save cloud user error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Save cloud user exception:', err);
-    return false;
-  }
+export async function saveCloudUser(userKey: string, display: string, role: UserRole, password: string): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_users').upsert({ user_key: userKey, display, role, password, updated_at: new Date().toISOString() }, { onConflict: 'user_key' }); return !error; } catch { return false; }
 }
 
-/** Update a user's username (display name) in the cloud. */
 export async function updateCloudUsername(userKey: string, newDisplay: string): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
-  try {
-    const { error } = await client
-      .from('app_users')
-      .update({ display: newDisplay, updated_at: new Date().toISOString() })
-      .eq('user_key', userKey);
-
-    if (error) {
-      console.error('Update cloud username error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Update cloud username exception:', err);
-    return false;
-  }
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_users').update({ display: newDisplay, updated_at: new Date().toISOString() }).eq('user_key', userKey); return !error; } catch { return false; }
 }
 
-/** Update a user's role in the cloud. */
 export async function updateCloudUserRole(userKey: string, newRole: UserRole): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
-
-  try {
-    const { error } = await client
-      .from('app_users')
-      .update({ role: newRole, updated_at: new Date().toISOString() })
-      .eq('user_key', userKey);
-
-    if (error) {
-      console.error('Update cloud role error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Update cloud role exception:', err);
-    return false;
-  }
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_users').update({ role: newRole, updated_at: new Date().toISOString() }).eq('user_key', userKey); return !error; } catch { return false; }
 }
 
-/** Delete a user from the cloud app_users table. */
 export async function deleteCloudUser(userKey: string): Promise<boolean> {
-  const client = getSupabaseClient();
-  if (!client) return false;
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_users').delete().eq('user_key', userKey); return !error; } catch { return false; }
+}
 
+// ═══════════════════════════════════
+//  REQUESTS (cloud)
+// ═══════════════════════════════════
+
+export async function fetchCloudRequests(): Promise<UserRequest[]> {
+  const c = getSupabaseClient(); if (!c) return [];
   try {
-    const { error } = await client
-      .from('app_users')
-      .delete()
-      .eq('user_key', userKey);
-
-    if (error) {
-      console.error('Delete cloud user error:', error);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error('Delete cloud user exception:', err);
-    return false;
-  }
+    const { data, error } = await c.from('app_requests').select('*').order('created_at', { ascending: false }).limit(100);
+    if (error) return [];
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      type: row.type,
+      userKey: row.user_key,
+      userDisplay: row.user_display,
+      status: row.status,
+      timestamp: row.created_at,
+      resolvedAt: row.resolved_at,
+      resolvedBy: row.resolved_by,
+      ...row.data,
+    })) as UserRequest[];
+  } catch { return []; }
 }
 
-/** Check cloud connection by ensuring both required tables exist. */
-export async function testConnection(): Promise<{ ok: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) return { ok: false, error: 'Client not initialized' };
-
+export async function saveCloudRequest(req: UserRequest): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  const { id, type, userKey, userDisplay, status, timestamp, resolvedAt, resolvedBy, ...rest } = req as any;
   try {
-    const userDataCheck = await client.from('user_data').select('user_key').limit(1);
-    if (userDataCheck.error) return { ok: false, error: `user_data: ${userDataCheck.error.message}` };
-
-    const appUsersCheck = await client.from('app_users').select('user_key').limit(1);
-    if (appUsersCheck.error) return { ok: false, error: `app_users: ${appUsersCheck.error.message}` };
-
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: String(err) };
-  }
+    const { error } = await c.from('app_requests').upsert({
+      id, type, user_key: userKey, user_display: userDisplay, status,
+      data: rest, resolved_at: resolvedAt || null, resolved_by: resolvedBy || null,
+      created_at: timestamp,
+    }, { onConflict: 'id' });
+    return !error;
+  } catch { return false; }
 }
 
-export interface DeviceUsageRow {
-  user_key: string;
-  date: string;
-  minutes_played: number;
-  app_breakdown: Record<string, number> | null;
-  last_synced: string;
+// ═══════════════════════════════════
+//  NOTIFICATIONS (cloud)
+// ═══════════════════════════════════
+
+export async function fetchCloudNotifications(): Promise<AdminNotification[]> {
+  const c = getSupabaseClient(); if (!c) return [];
+  try {
+    const { data, error } = await c.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    if (error) return [];
+    return (data || []).map((row: any) => ({
+      id: row.id,
+      targetUserKey: row.target_user_key,
+      fromAdmin: row.from_admin,
+      message: row.message,
+      type: row.type,
+      timestamp: row.created_at,
+      readBy: row.read_by || [],
+    })) as AdminNotification[];
+  } catch { return []; }
 }
 
-/** Fetch device usage for a user (last 7 days from minecraft_usage table). */
+export async function saveCloudNotification(notif: AdminNotification): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  try {
+    const { error } = await c.from('app_notifications').upsert({
+      id: notif.id, target_user_key: notif.targetUserKey, from_admin: notif.fromAdmin,
+      message: notif.message, type: notif.type, read_by: notif.readBy,
+      created_at: notif.timestamp,
+    }, { onConflict: 'id' });
+    return !error;
+  } catch { return false; }
+}
+
+export async function updateNotifReadBy(notifId: string, readBy: string[]): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_notifications').update({ read_by: readBy }).eq('id', notifId); return !error; } catch { return false; }
+}
+
+// ═══════════════════════════════════
+//  DELETED USERS (cloud)
+// ═══════════════════════════════════
+
+export async function fetchDeletedUsers(): Promise<Record<string, string>> {
+  const c = getSupabaseClient(); if (!c) return {};
+  try {
+    const { data, error } = await c.from('app_deleted_users').select('user_key, reason');
+    if (error) return {};
+    const map: Record<string, string> = {};
+    for (const row of (data || []) as any[]) { map[row.user_key] = row.reason; }
+    return map;
+  } catch { return {}; }
+}
+
+export async function addDeletedUser(userKey: string, reason: string): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_deleted_users').upsert({ user_key: userKey, reason, deleted_at: new Date().toISOString() }, { onConflict: 'user_key' }); return !error; } catch { return false; }
+}
+
+export async function removeDeletedUser(userKey: string): Promise<boolean> {
+  const c = getSupabaseClient(); if (!c) return false;
+  try { const { error } = await c.from('app_deleted_users').delete().eq('user_key', userKey); return !error; } catch { return false; }
+}
+
+// ═══════════════════════════════════
+//  DEVICE USAGE
+// ═══════════════════════════════════
+
 export async function fetchDeviceUsage(userKey: string): Promise<DeviceUsageRow[]> {
-  const client = getSupabaseClient();
-  if (!client) return [];
+  const c = getSupabaseClient(); if (!c) return [];
+  try { const { data, error } = await c.from('minecraft_usage').select('user_key, date, minutes_played, app_breakdown, last_synced').eq('user_key', userKey).order('date', { ascending: false }).limit(7); if (error) return []; return (data || []) as DeviceUsageRow[]; } catch { return []; }
+}
 
-  try {
-    const { data, error } = await client
-      .from('minecraft_usage')
-      .select('user_key, date, minutes_played, app_breakdown, last_synced')
-      .eq('user_key', userKey)
-      .order('date', { ascending: false })
-      .limit(7);
+// ═══════════════════════════════════
+//  CONNECTION TEST
+// ═══════════════════════════════════
 
-    if (error) {
-      console.error('Fetch device usage error:', error);
-      return [];
-    }
-    return (data || []) as DeviceUsageRow[];
-  } catch (err) {
-    console.error('Fetch device usage exception:', err);
-    return [];
-  }
+export async function testConnection(): Promise<{ ok: boolean; error?: string }> {
+  const c = getSupabaseClient(); if (!c) return { ok: false, error: 'No client' };
+  try { const r = await c.from('user_data').select('user_key').limit(1); if (r.error) return { ok: false, error: r.error.message }; return { ok: true }; } catch (e) { return { ok: false, error: String(e) }; }
 }

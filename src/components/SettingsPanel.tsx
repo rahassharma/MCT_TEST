@@ -43,6 +43,7 @@ export default function SettingsPanel({
     getPendingRequests, getAllRequests, getUserRequests, resolveRequest,
     submitRecommendUser, submitSuggestion,
     sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
+    dataVersion,
   } = useAuth();
 
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('time');
@@ -68,6 +69,7 @@ export default function SettingsPanel({
   const [editNameKey, setEditNameKey] = useState(''); const [editNameVal, setEditNameVal] = useState('');
   const [editRoleKey, setEditRoleKey] = useState(''); const [editRoleVal, setEditRoleVal] = useState<UserRole>('user');
   const [removeKey, setRemoveKey] = useState('');
+  const [removeReason, setRemoveReason] = useState('');
   const [secMsg, setSecMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Request states
@@ -91,11 +93,11 @@ export default function SettingsPanel({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMsg, setImportMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  const users = useMemo(() => getAllUsers(), [getAllUsers, ver]);
-  const pendingReqs = useMemo(() => getPendingRequests(), [getPendingRequests, ver]);
-  const userReqs = useMemo(() => user ? getUserRequests(user.key) : [], [user, getUserRequests, ver]);
-  const userNotifs = useMemo(() => user ? getNotificationsForUser(user.key) : [], [user, getNotificationsForUser, ver]);
-  const unreadCount = useMemo(() => user ? getUnreadCount(user.key) : 0, [user, getUnreadCount, ver]);
+  const users = useMemo(() => getAllUsers(), [getAllUsers, ver, dataVersion]);
+  const pendingReqs = useMemo(() => getPendingRequests(), [getPendingRequests, ver, dataVersion]);
+  const userReqs = useMemo(() => user ? getUserRequests(user.key) : [], [user, getUserRequests, ver, dataVersion]);
+  const userNotifs = useMemo(() => user ? getNotificationsForUser(user.key) : [], [user, getNotificationsForUser, ver, dataVersion]);
+  const unreadCount = useMemo(() => user ? getUnreadCount(user.key) : 0, [user, getUnreadCount, ver, dataVersion]);
 
   // Style helpers
   const cardCls = isGlass ? 'p-4 rounded-xl bg-gray-900/5 border border-gray-200/50' : 'p-4 rounded-xl bg-[#fafafa] border border-[#e5e5e5]';
@@ -201,7 +203,7 @@ export default function SettingsPanel({
 
           {securitySection === 'removeUser' && (
             <div className="space-y-3">
-              <div className={cardCls}><h3 className={`text-sm font-bold mb-2 text-red-600`}><UserMinus className="w-4 h-4 inline mr-1" />Remove User</h3><div className="space-y-2"><div className="relative"><select value={removeKey} onChange={e => setRemoveKey(e.target.value)} className={selectCls}><option value="">Choose user to remove...</option>{users.filter(u => u.key !== 'admin').map(u => <option key={u.key} value={u.key}>{u.display} ({u.key})</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>{removeKey && <button onClick={async () => { if (!confirm(`Delete ${removeKey}?`)) return; const r = await removeUser(removeKey); setSecMsg(r.success ? { type:'success', text:'Removed' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRemoveKey(''); bump(); } }} className="w-full py-2 rounded-lg font-semibold text-sm bg-red-500 text-white hover:bg-red-600">Remove User</button>}</div></div>
+              <div className={cardCls}><h3 className={`text-sm font-bold mb-2 text-red-600`}><UserMinus className="w-4 h-4 inline mr-1" />Remove User</h3><div className="space-y-2"><div className="relative"><select value={removeKey} onChange={e => setRemoveKey(e.target.value)} className={selectCls}><option value="">Choose user to remove...</option>{users.filter(u => u.key !== 'admin').map(u => <option key={u.key} value={u.key}>{u.display} ({u.key})</option>)}</select><ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none ${labelCls}`} /></div>{removeKey && <><input placeholder="Reason for removal (shown to user)" value={removeReason} onChange={e => setRemoveReason(e.target.value)} className={inputCls + ' mb-2'} /><button onClick={async () => { if (!confirm(`Delete ${removeKey}?`)) return; const r = await removeUser(removeKey, removeReason || undefined); setSecMsg(r.success ? { type:'success', text:'Removed' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRemoveKey(''); setRemoveReason(''); bump(); } }} className="w-full py-2 rounded-lg font-semibold text-sm bg-red-500 text-white hover:bg-red-600">Remove User</button></>}</div></div>
               {secMsg && <Msg m={secMsg} />}
               <UsersList users={users} headCls={headCls} labelCls={labelCls} cardCls={cardCls} isGlass={isGlass} />
             </div>
@@ -295,7 +297,7 @@ export default function SettingsPanel({
               <input placeholder="Login key (e.g. john)" value={recKey} onChange={e => setRecKey(e.target.value)} className={inputCls} />
               <input placeholder="Display name" value={recDisplay} onChange={e => setRecDisplay(e.target.value)} className={inputCls} />
               <PwInput label="" value={recPw} onChange={setRecPw} show={showPasswords['rec']} onToggle={() => setShowPasswords(p => ({...p, 'rec': !p['rec']}))} />
-              <button onClick={() => { const r = submitRecommendUser(recKey, recDisplay, recPw); setRecMsg(r.success ? { type:'success', text:'Recommendation sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRecKey(''); setRecDisplay(''); setRecPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Recommend</button>
+              <button onClick={async () => { const r = await submitRecommendUser(recKey, recDisplay, recPw); setRecMsg(r.success ? { type:'success', text:'Recommendation sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setRecKey(''); setRecDisplay(''); setRecPw(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Recommend</button>
             </div>
             {recMsg && <div className="mt-2"><Msg m={recMsg} /></div>}
           </div>
@@ -326,7 +328,7 @@ export default function SettingsPanel({
             <h3 className={`text-sm font-bold mb-2 ${headCls}`}><MessageSquare className="w-4 h-4 inline mr-1" />Send a Suggestion</h3>
             <div className="space-y-2">
               <textarea value={sugText} onChange={e => setSugText(e.target.value)} placeholder="Your suggestion or feedback..." rows={4} className={inputCls} />
-              <button onClick={() => { const r = submitSuggestion(sugText); setSugMsg(r.success ? { type:'success', text:'Sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setSugText(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Submit</button>
+              <button onClick={async () => { const r = await submitSuggestion(sugText); setSugMsg(r.success ? { type:'success', text:'Sent!' } : { type:'error', text: r.error || 'Failed' }); if (r.success) { setSugText(''); bump(); } }} className={`w-full py-2 rounded-lg font-semibold text-sm ${btnPrimary}`}><Send className="w-4 h-4 inline mr-1" />Submit</button>
             </div>
             {sugMsg && <div className="mt-2"><Msg m={sugMsg} /></div>}
           </div>

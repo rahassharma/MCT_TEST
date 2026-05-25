@@ -313,19 +313,75 @@ function Dashboard() {
   );
 }
 
+function DeletedScreen() {
+  const { deletedMessage, submitAppeal, logout } = useAuth();
+  const { theme } = useTheme();
+  const isGlass = theme === 'glass';
+  const [appeal, setAppeal] = useState('');
+  const [sent, setSent] = useState(false);
+
+  return (
+    <div className={`min-h-screen flex items-center justify-center p-4 ${isGlass ? 'gradient-mesh' : 'bg-white'}`}>
+      <div className={`w-full max-w-md ${isGlass ? 'glass-card p-8' : 'bg-white border border-[#e5e5e5] rounded-xl p-8'}`}>
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <span className="text-3xl">🚫</span>
+          </div>
+          <h1 className={`text-2xl font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Account Removed</h1>
+          <p className={`text-sm mt-2 ${isGlass ? 'text-gray-500' : 'text-[#666]'}`}>{deletedMessage}</p>
+        </div>
+
+        {!sent ? (
+          <div className="space-y-3">
+            <textarea
+              value={appeal}
+              onChange={e => setAppeal(e.target.value)}
+              placeholder="Write an appeal to the admin..."
+              rows={3}
+              className={`w-full px-4 py-3 rounded-xl border text-sm ${isGlass ? 'bg-gray-50 border-gray-200/80 focus:ring-2 focus:ring-gray-900/10' : 'bg-[#fafafa] border-[#e5e5e5] focus:border-[#0f0f0f]'} focus:outline-none`}
+            />
+            <button
+              onClick={() => {
+                if (appeal.trim()) {
+                  submitAppeal(appeal);
+                  setSent(true);
+                }
+              }}
+              className={`w-full py-3 rounded-xl font-semibold text-sm ${isGlass ? 'bg-gray-900 text-white hover:bg-gray-800' : 'bg-[#0f0f0f] text-white hover:bg-[#333]'}`}
+            >
+              Submit Appeal
+            </button>
+          </div>
+        ) : (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+            <p className="text-sm font-semibold text-green-700">✅ Appeal submitted!</p>
+            <p className="text-xs text-green-600 mt-1">The admin will review your appeal.</p>
+          </div>
+        )}
+
+        <button onClick={logout} className={`w-full mt-4 py-2 rounded-xl font-semibold text-sm ${isGlass ? 'bg-gray-100 text-gray-700' : 'border border-[#e5e5e5] text-[#666]'}`}>
+          Sign Out
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppInner() {
-  const { user } = useAuth();
+  const { user, isDeleted } = useAuth();
   const [showSetup, setShowSetup] = useState(false);
 
-  // Show setup screen when explicitly requested from Settings,
-  // or if cloud is not yet configured AND user hasn't dismissed it
   const setupDismissed = localStorage.getItem('screentime_setup_skipped') === 'true';
 
   if (!user) {
     return <LoginPage />;
   }
 
-  // If cloud not hardcoded and not yet dismissed → guide user through one-time setup
+  // Show deleted screen if user was removed by admin
+  if (isDeleted) {
+    return <DeletedScreen />;
+  }
+
   if (!CLOUD_ENABLED && !setupDismissed || showSetup) {
     return (
       <DbSetupScreen
