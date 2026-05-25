@@ -128,7 +128,7 @@ export default function SpellInput({
                   <p className="text-xs text-amber-600">Data entered by admin</p>
                 </div>
               </div>
-              {total > 0 && (
+              {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > 0 && (
                 <div className="bg-[#f5f5f5] border border-[#e5e5e5] rounded-xl p-4">
                   <div className="grid grid-cols-3 gap-3 text-center mb-3">
                     <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 1</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell1}</p><p className="text-[10px] text-[#999]">min</p></div>
@@ -136,13 +136,13 @@ export default function SpellInput({
                     <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 3</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell3}</p><p className="text-[10px] text-[#999]">min</p></div>
                   </div>
                   <div className={`text-center py-2 rounded-lg ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                    <span className="text-sm font-bold">{total}</span><span className="text-xs"> / {effectiveLimit} min</span>
-                    {total > effectiveLimit && <span className="text-xs ml-2">⚠️ Over limit by {total - effectiveLimit} min</span>}
-                    {total <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - total} min remaining</span>}
+                    <span className="text-sm font-bold">{dailyData.spell1 + dailyData.spell2 + dailyData.spell3}</span><span className="text-xs"> / {effectiveLimit} min</span>
+                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">⚠️ Over limit by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit} min</span>}
+                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} min remaining</span>}
                   </div>
                 </div>
               )}
-              {total === 0 && !isFutureDate && (
+              {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) === 0 && !isFutureDate && (
                 <div className="text-center py-4 bg-[#fafafa] border border-[#e5e5e5] rounded-xl">
                   <p className="text-sm text-[#999]">No data entered for this date yet</p>
                 </div>
@@ -264,7 +264,7 @@ export default function SpellInput({
                 <p className="text-white/70 text-xs">Data entered by admin</p>
               </div>
             </div>
-            {total > 0 && (
+            {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > 0 && (
               <div className="glass-card p-4">
                 <div className="grid grid-cols-3 gap-3 text-center mb-3">
                   <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 1</p><p className="text-xl font-bold text-gray-900">{dailyData.spell1}</p><p className="text-[10px] text-gray-400">min</p></div>
@@ -272,13 +272,13 @@ export default function SpellInput({
                   <div><p className="text-[10px] font-bold text-gray-400 uppercase">Spell 3</p><p className="text-xl font-bold text-gray-900">{dailyData.spell3}</p><p className="text-[10px] text-gray-400">min</p></div>
                 </div>
                 <div className={`text-center py-2 rounded-xl ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                  <span className="text-sm font-bold">{total}</span><span className="text-xs"> / {effectiveLimit} min</span>
-                  {total > effectiveLimit && <span className="text-xs ml-2">⚠️ Over by {total - effectiveLimit}</span>}
-                  {total <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - total} left</span>}
+                  <span className="text-sm font-bold">{dailyData.spell1 + dailyData.spell2 + dailyData.spell3}</span><span className="text-xs"> / {effectiveLimit} min</span>
+                  {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">⚠️ Over by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit}</span>}
+                  {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} left</span>}
                 </div>
               </div>
             )}
-            {total === 0 && !isFutureDate && (
+            {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) === 0 && !isFutureDate && (
               <div className="text-center py-4 glass-card">
                 <p className="text-sm text-gray-400">No data entered for this date yet</p>
               </div>
