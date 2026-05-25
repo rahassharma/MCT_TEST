@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Sparkles, LogOut, Shield, Settings2, AlertTriangle, X } from 'lucide-react';
+import { Monitor, Sparkles, LogOut, Shield, Settings2, AlertTriangle, X, Gift, Laptop, Plus } from 'lucide-react';
 import Calendar from './components/Calendar';
 import SpellInput from './components/SpellInput';
 import StatsPanel from './components/StatsPanel';
@@ -35,6 +35,11 @@ function Dashboard() {
 
   const [showOverride, setShowOverride] = useState(false);
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
+  const [showBonusModal, setShowBonusModal] = useState(false);
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [bonusAmount, setBonusAmount] = useState('');
+  const [deviceName, setDeviceName] = useState('');
+  const [deviceMins, setDeviceMins] = useState('');
   const [penaltyAmount, setPenaltyAmount] = useState('');
   const [penaltyReason, setPenaltyReason] = useState('');
 
@@ -83,12 +88,20 @@ function Dashboard() {
               </div>
               {syncIndicator}
               <ThemeToggle />
-              {isAdmin && (
-                <button onClick={() => setShowPenaltyModal(true)} title="Quick Penalty"
+              {isAdmin && (<>
+                <button onClick={() => setShowBonusModal(true)} title="Add Bonus"
+                  className="w-9 h-9 rounded-lg border border-green-200 bg-green-50 hover:bg-green-100 flex items-center justify-center transition-colors text-green-500 hover:text-green-700">
+                  <Gift className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowPenaltyModal(true)} title="Add Penalty"
                   className="w-9 h-9 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors text-red-500 hover:text-red-700">
                   <AlertTriangle className="w-4 h-4" />
                 </button>
-              )}
+                <button onClick={() => setShowDeviceModal(true)} title="Add Device Time"
+                  className="w-9 h-9 rounded-lg border border-purple-200 bg-purple-50 hover:bg-purple-100 flex items-center justify-center transition-colors text-purple-500 hover:text-purple-700">
+                  <Laptop className="w-4 h-4" />
+                </button>
+              </>)}
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-lg border border-[#e5e5e5] bg-white hover:bg-[#f5f5f5] flex items-center justify-center transition-colors text-[#666] hover:text-[#0f0f0f]">
                 <Settings2 className="w-4 h-4" />
@@ -216,12 +229,20 @@ function Dashboard() {
 
               {syncIndicator}
               <ThemeToggle />
-              {isAdmin && (
-                <button onClick={() => setShowPenaltyModal(true)} title="Quick Penalty"
+              {isAdmin && (<>
+                <button onClick={() => setShowBonusModal(true)} title="Add Bonus"
+                  className="w-9 h-9 rounded-full bg-green-50 hover:bg-green-100 border border-green-200/50 flex items-center justify-center transition-all text-green-500 hover:text-green-700 hover:scale-105 active:scale-95">
+                  <Gift className="w-4 h-4" />
+                </button>
+                <button onClick={() => setShowPenaltyModal(true)} title="Add Penalty"
                   className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 border border-red-200/50 flex items-center justify-center transition-all text-red-500 hover:text-red-700 hover:scale-105 active:scale-95">
                   <AlertTriangle className="w-4 h-4" />
                 </button>
-              )}
+                <button onClick={() => setShowDeviceModal(true)} title="Add Device Time"
+                  className="w-9 h-9 rounded-full bg-purple-50 hover:bg-purple-100 border border-purple-200/50 flex items-center justify-center transition-all text-purple-500 hover:text-purple-700 hover:scale-105 active:scale-95">
+                  <Laptop className="w-4 h-4" />
+                </button>
+              </>)}
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200/50 flex items-center justify-center transition-all text-gray-500 hover:text-gray-900 hover:scale-105 active:scale-95">
                 <Settings2 className="w-4 h-4" />
@@ -342,6 +363,61 @@ function Dashboard() {
                 Apply Penalty
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Bonus Modal */}
+      {showBonusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className={`absolute inset-0 ${isGlass ? 'bg-black/30 backdrop-blur-md' : 'bg-black/50'}`} onClick={() => setShowBonusModal(false)} />
+          <div className={`relative w-full max-w-md rounded-2xl p-6 shadow-2xl ${isGlass ? 'bg-white/95 backdrop-blur-2xl' : 'bg-white'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2"><Gift className="w-5 h-5 text-green-500" /><h3 className={`text-lg font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Add Bonus Time</h3></div>
+              <button onClick={() => setShowBonusModal(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            <p className={`text-xs mb-4 ${isGlass ? 'text-gray-500' : 'text-[#999]'}`}>Add extra minutes for {state.selectedDate}</p>
+            <input type="number" value={bonusAmount} onChange={e => setBonusAmount(e.target.value)} placeholder="Bonus minutes" className={`w-full px-4 py-3 rounded-xl border text-sm font-semibold mb-3 ${isGlass ? 'bg-gray-50 border-gray-200/80' : 'bg-[#fafafa] border-[#e5e5e5]'} focus:outline-none`} />
+            <button onClick={() => {
+              const mins = parseInt(bonusAmount) || 0;
+              if (mins <= 0) return;
+              const current = getDailyData(state.selectedDate);
+              updateSpells(state.selectedDate, { ...current, bonusMinutes: (current.bonusMinutes || 0) + mins });
+              setBonusAmount(''); setShowBonusModal(false);
+            }} className="w-full py-3 rounded-xl font-semibold text-sm bg-green-500 text-white hover:bg-green-600">🎁 Add Bonus</button>
+          </div>
+        </div>
+      )}
+
+      {/* Device Time Modal */}
+      {showDeviceModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className={`absolute inset-0 ${isGlass ? 'bg-black/30 backdrop-blur-md' : 'bg-black/50'}`} onClick={() => setShowDeviceModal(false)} />
+          <div className={`relative w-full max-w-md rounded-2xl p-6 shadow-2xl ${isGlass ? 'bg-white/95 backdrop-blur-2xl' : 'bg-white'}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2"><Laptop className="w-5 h-5 text-purple-500" /><h3 className={`text-lg font-bold ${isGlass ? 'text-gray-900' : 'text-[#0f0f0f]'}`}>Add Device Time</h3></div>
+              <button onClick={() => setShowDeviceModal(false)} className="text-gray-400 hover:text-gray-700"><X className="w-5 h-5" /></button>
+            </div>
+            <p className={`text-xs mb-3 ${isGlass ? 'text-gray-500' : 'text-[#999]'}`}>Add screen time from other devices for {state.selectedDate}</p>
+            {/* Existing devices */}
+            {Object.entries(getDailyData(state.selectedDate).devices || {}).map(([name, mins]) => (
+              <div key={name} className={`flex items-center justify-between px-3 py-2 rounded-lg mb-1.5 text-sm ${isGlass ? 'bg-gray-50' : 'bg-[#f5f5f5]'}`}>
+                <span className="font-semibold">{name}</span>
+                <span className="font-bold">{mins as number} min</span>
+              </div>
+            ))}
+            <div className="flex gap-2 mt-3">
+              <input value={deviceName} onChange={e => setDeviceName(e.target.value)} placeholder="Device (TV, iPad...)" className={`flex-1 px-3 py-3 rounded-xl border text-sm ${isGlass ? 'bg-gray-50 border-gray-200/80' : 'bg-[#fafafa] border-[#e5e5e5]'} focus:outline-none`} />
+              <input type="number" value={deviceMins} onChange={e => setDeviceMins(e.target.value)} placeholder="Min" className={`w-20 px-3 py-3 rounded-xl border text-sm font-semibold ${isGlass ? 'bg-gray-50 border-gray-200/80' : 'bg-[#fafafa] border-[#e5e5e5]'} focus:outline-none`} />
+            </div>
+            <button onClick={() => {
+              if (!deviceName.trim() || !deviceMins) return;
+              const current = getDailyData(state.selectedDate);
+              const devs = { ...(current.devices || {}), [deviceName.trim()]: parseInt(deviceMins) || 0 };
+              updateSpells(state.selectedDate, { ...current, devices: devs });
+              setDeviceName(''); setDeviceMins('');
+            }} className="w-full mt-3 py-3 rounded-xl font-semibold text-sm bg-purple-500 text-white hover:bg-purple-600 flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Add Device</button>
           </div>
         </div>
       )}
