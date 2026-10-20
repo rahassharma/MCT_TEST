@@ -74,7 +74,7 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
   /* ═══ CLASSIC — Brevo-inspired ═══ */
   if (!isGlass) {
     return (
-      <div className="bg-[#F6FBF1] border border-brevo-border rounded-2xl p-6">
+      <div className="bg-[#F6FBF1] border border-[#E3EFDC] rounded-[24px] p-[22px]">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-brevo-ink text-white flex items-center justify-center">

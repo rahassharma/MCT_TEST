@@ -113,7 +113,7 @@ export default function SpellInput({
   if (!isGlass) {
     return (
       <>
-        <div className="bg-white border border-brevo-border rounded-2xl p-6 transition-all duration-300">
+        <div className="bg-white border border-brevo-border rounded-[24px] p-[26px] transition-all duration-300">
           <div className="flex items-center justify-between mb-1">
             <div className="text-base font-extrabold text-brevo-ink">Log time</div>
             {isAdmin && (
@@ -187,7 +187,7 @@ export default function SpellInput({
                   { label: 'Spell 3', value: spell3, setter: setSpell3 },
                 ].map(s => (
                   <div key={s.label}>
-                    <label className="block text-[11px] font-bold text-[#8A9A8F] uppercase tracking-wide mb-2">{s.label}</label>
+                    <label className="block text-[11px] font-bold text-[#8A9A8F] uppercase tracking-[0.04em] mb-[7px]">{s.label}</label>
                     <input
                       type="number"
                       value={s.value || ''}
@@ -196,7 +196,7 @@ export default function SpellInput({
                       readOnly={isFutureDate || !isAdmin}
                       disabled={isFutureDate || !isAdmin}
                       onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-full px-3.5 py-3 border border-brevo-border rounded-2xl text-base bg-brevo-field font-bold text-brevo-ink transition-all ${
+                      className={`w-full px-3.5 py-3 border border-[#E6EEE0] rounded-[14px] text-[17px] bg-brevo-field font-bold text-brevo-ink transition-all ${
                         isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)]'
                       }`}
                     />

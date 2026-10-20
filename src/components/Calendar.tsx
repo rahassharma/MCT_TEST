@@ -72,7 +72,7 @@ export default function Calendar({
   /* ───── CLASSIC THEME — Brevo-inspired ───── */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-brevo-border rounded-2xl p-6 transition-all duration-300">
+      <div className="bg-white border border-brevo-border rounded-[24px] p-[26px] transition-all duration-300">
         <div className="flex items-center justify-between mb-5">
           <span className="text-base font-extrabold text-brevo-ink flex items-center gap-2">
             <CalendarDays className="w-4 h-4 text-brevo-teal" />
@@ -103,24 +103,24 @@ export default function Calendar({
             const isFuture = key > todayKey;
             const blockInfo = getBlockInfo(key);
 
-            let cls = 'aspect-square flex items-center justify-center rounded-xl text-sm font-semibold transition-all duration-150 cursor-pointer border ';
+            let cls = 'aspect-square flex items-center justify-center rounded-[11px] text-sm font-semibold transition-all duration-150 cursor-pointer ';
 
             if (!isCurrentMonth) {
-              cls += 'text-[#D7DDD5] border-transparent cursor-default';
+              cls += 'text-[#D7DDD5] cursor-default';
             } else if (isSelected && blockInfo === 'full') {
-              cls += 'bg-brevo-danger-bg border-brevo-danger text-brevo-danger font-bold';
+              cls += 'bg-brevo-danger-bg text-brevo-danger font-bold';
             } else if (isSelected && blockInfo === 'partial') {
-              cls += 'bg-brevo-orange-bg border-brevo-orange text-brevo-orange font-bold';
+              cls += 'bg-brevo-orange-bg text-brevo-orange font-bold';
             } else if (isSelected) {
-              cls += 'bg-brevo-ink text-white border-brevo-ink';
+              cls += 'bg-brevo-ink text-white';
             } else if (blockInfo === 'full') {
-              cls += 'bg-brevo-danger-bg border-brevo-danger/40 text-brevo-danger font-semibold';
+              cls += 'bg-brevo-danger-bg text-brevo-danger font-semibold';
             } else if (blockInfo === 'partial') {
-              cls += 'bg-brevo-orange-bg border-brevo-orange/40 text-brevo-orange';
+              cls += 'bg-brevo-orange-bg text-brevo-orange';
             } else if (isFuture) {
-              cls += 'border-brevo-border text-[#B7C2B9] bg-brevo-field';
+              cls += 'text-[#B7C2B9] bg-brevo-field';
             } else {
-              cls += 'border-brevo-border hover:border-brevo-teal hover:bg-brevo-field';
+              cls += 'bg-[#FAFBF9] hover:bg-brevo-field';
             }
 
             if (isToday && !isSelected) cls += ' ring-2 ring-brevo-lime ring-offset-1';

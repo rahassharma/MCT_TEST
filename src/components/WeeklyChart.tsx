@@ -79,7 +79,7 @@ export default function WeeklyChart({ stats }: WeeklyChartProps) {
   /* ══════ CLASSIC — Brevo-inspired ══════ */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-brevo-border rounded-2xl p-6">
+      <div className="bg-white border border-brevo-border rounded-[24px] p-7">
         <div className="mb-6 flex items-baseline justify-between">
           <div>
             <h3 className="text-base font-extrabold text-brevo-ink">Last 7 days</h3>

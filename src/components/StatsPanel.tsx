@@ -35,15 +35,16 @@ function ClassicStatCard({ label, value, unit, variant, icon: Icon }: {
   };
   const v = variant || 'default';
   return (
-    <div className="bg-white border border-brevo-border rounded-2xl p-4">
+    <div className="bg-white border border-brevo-border rounded-[18px] p-4">
       {Icon && (
-        <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2.5 ${chipStyles[v]}`}>
+        <div className={`w-[30px] h-[30px] rounded-full flex items-center justify-center mb-2.5 ${chipStyles[v]}`}>
           <Icon className="w-3.5 h-3.5" />
         </div>
       )}
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[#8A9A8F] mb-0.5">{label}</div>
-      <div className={`text-2xl font-extrabold ${valueColors[v]}`}>{value}</div>
-      <div className="text-[11px] text-[#9AA89E] mt-0.5">{unit}</div>
+      <div className="text-[10px] font-bold uppercase tracking-[0.04em] text-[#8A9A8F]">{label}</div>
+      <div className={`text-[22px] font-extrabold mt-0.5 ${valueColors[v]}`}>
+        {value}<span className="text-[11px] font-semibold text-[#9AA89E]"> {unit}</span>
+      </div>
     </div>
   );
 }
@@ -224,12 +225,12 @@ export default function StatsPanel({ penaltyInfo, dailyData, isBlocked, isFullBl
 
         {/* Stat cards — matches the design reference's 6-tile grid exactly */}
         <div className="grid grid-cols-2 gap-3">
-          <ClassicStatCard label="Time used" value={totalTime} unit="minutes" variant={isOver ? 'danger' : 'accent'} icon={Clock} />
-          <ClassicStatCard label="Effective limit" value={effectiveLimit} unit="minutes" variant="default" icon={BarChart3} />
-          <ClassicStatCard label="Bonus time" value={bonusTime} unit="minutes available" variant="success" icon={Gift} />
-          <ClassicStatCard label="Excess time" value={excessTime} unit="minutes over limit" variant={excessTime > 0 ? 'warning' : 'default'} icon={AlertTriangle} />
-          <ClassicStatCard label="Penalty" value={penaltyMinutes} unit="minutes blocked tomorrow" variant={penaltyMinutes > 0 ? 'danger' : 'default'} icon={Ban} />
-          <ClassicStatCard label="Carry forward" value={carryForward} unit="minutes" variant="muted" icon={ArrowRight} />
+          <ClassicStatCard label="Time used" value={totalTime} unit="min" variant={isOver ? 'danger' : 'accent'} icon={Clock} />
+          <ClassicStatCard label="Effective limit" value={effectiveLimit} unit="min" variant="default" icon={BarChart3} />
+          <ClassicStatCard label="Bonus time" value={bonusTime} unit="min" variant="success" icon={Gift} />
+          <ClassicStatCard label="Excess time" value={excessTime} unit="min" variant={excessTime > 0 ? 'warning' : 'default'} icon={AlertTriangle} />
+          <ClassicStatCard label="Penalty" value={penaltyMinutes} unit="min" variant={penaltyMinutes > 0 ? 'danger' : 'default'} icon={Ban} />
+          <ClassicStatCard label="Carry forward" value={carryForward} unit="min" variant="muted" icon={ArrowRight} />
         </div>
 
         <PenaltyBreakdown />

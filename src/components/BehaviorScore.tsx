@@ -27,7 +27,7 @@ export default function BehaviorScore({ score, grade, label, onTimePct, avgPenal
   /* ══════ CLASSIC — Brevo-inspired ══════ */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-brevo-border rounded-2xl p-7">
+      <div className="bg-white border border-brevo-border rounded-[24px] p-6">
         <div className="mb-5">
           <h3 className="text-base font-extrabold text-brevo-ink">Behavior score</h3>
           <p className="text-xs text-[#8A9A8F] mt-0.5">Based on last 7 days</p>
