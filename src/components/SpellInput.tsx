@@ -118,8 +118,8 @@ export default function SpellInput({
             <div className="text-base font-extrabold text-brevo-ink">Log time</div>
             {isAdmin && (
               <button onClick={onOverride}
-                className="flex items-center gap-1.5 text-xs font-bold text-brevo-teal hover:text-[#0a5c4c] transition-colors">
-                <Lock className="w-3.5 h-3.5" /> Override
+                className="text-xs font-bold text-brevo-teal hover:text-[#0a5c4c] transition-colors">
+                Override
               </button>
             )}
           </div>
@@ -188,18 +188,21 @@ export default function SpellInput({
                 ].map(s => (
                   <div key={s.label}>
                     <label className="block text-[11px] font-bold text-[#8A9A8F] uppercase tracking-[0.04em] mb-[7px]">{s.label}</label>
-                    <input
-                      type="number"
-                      value={s.value || ''}
-                      min={0}
-                      placeholder="0"
-                      readOnly={isFutureDate || !isAdmin}
-                      disabled={isFutureDate || !isAdmin}
-                      onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-full px-3.5 py-3 border border-[#E6EEE0] rounded-[14px] text-[17px] bg-brevo-field font-bold text-brevo-ink transition-all ${
-                        isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)]'
-                      }`}
-                    />
+                    <div className={`flex items-baseline gap-1 px-3.5 py-3 border border-[#E6EEE0] rounded-[14px] bg-brevo-field transition-all ${
+                      isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus-within:border-brevo-teal focus-within:bg-white focus-within:shadow-[0_0_0_3px_rgba(14,127,104,0.08)]'
+                    }`}>
+                      <input
+                        type="number"
+                        value={s.value || ''}
+                        min={0}
+                        placeholder="0"
+                        readOnly={isFutureDate || !isAdmin}
+                        disabled={isFutureDate || !isAdmin}
+                        onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full min-w-0 bg-transparent text-[17px] font-bold text-brevo-ink focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <span className="text-[11px] text-[#9AA89E] font-semibold flex-shrink-0">min</span>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -233,8 +236,8 @@ export default function SpellInput({
 
           {isAdmin && (
             <button onClick={onOverride}
-              className="w-full py-3 rounded-full bg-brevo-danger text-white font-bold text-sm hover:bg-[#a52e26] transition-colors flex items-center justify-center gap-2">
-              <ShieldAlert className="w-4 h-4" /> Admin Override
+              className="w-full py-3 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830] transition-colors">
+              Admin Override
             </button>
           )}
         </div>
