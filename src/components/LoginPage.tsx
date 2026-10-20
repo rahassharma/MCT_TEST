@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Monitor, Eye, EyeOff, LogIn, AlertCircle, User, Lock, Cloud, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { useTheme } from '../ThemeContext';
+import { useStore } from '../useStore';
 import ThemeToggle from './ThemeToggle';
 import { CLOUD_ENABLED } from '../db/supabase';
 
@@ -14,6 +15,8 @@ export default function LoginPage() {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const cloudConfigured = CLOUD_ENABLED;
+  const { getBehaviorScore } = useStore('rahas');
+  const behavior = getBehaviorScore();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -59,59 +62,62 @@ export default function LoginPage() {
     ? 'Cloud login enabled — your account works across devices'
     : 'Local login only until cloud is configured';
 
-  /* Brevo-inspired split layout: lime brand panel + clean white form panel. */
+  /* Exact port of the WebLogin design reference: 1200x860 split card, 46/54 panels,
+     56px/64px panel padding, plain (icon-less) inputs, and the Grade stat card in place
+     of a cloud-status pill — wired to the real 7-day behavior score instead of the
+     reference's placeholder "86". */
   if (!isGlass) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="fixed top-6 right-6 z-50"><ThemeToggle /></div>
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-          className="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-[0_1px_2px_rgba(21,36,29,0.04)] flex flex-col md:flex-row border border-brevo-border">
+          className="w-full max-w-[1200px] min-h-[860px] rounded-[28px] overflow-hidden shadow-[0_1px_2px_rgba(21,36,29,0.04)] flex flex-col md:flex-row">
 
           {/* Brand panel */}
-          <div className="flex-1 bg-brevo-lime p-10 md:p-12 flex flex-col justify-between gap-8 min-h-[420px]">
+          <div className="flex-[1_1_46%] bg-brevo-lime p-14 flex flex-col justify-between gap-8 min-w-[320px]">
             <div className="flex items-baseline gap-0.5">
               <span className="text-xl font-extrabold tracking-tight text-brevo-teal">STLOG</span>
               <span className="text-xl font-extrabold tracking-tight text-brevo-ink">Track</span>
             </div>
-            <div className="max-w-xs">
-              <div className="text-[11px] font-extrabold tracking-[0.12em] text-brevo-teal mb-3 uppercase">Screen time, simplified</div>
-              <h2 className="text-[28px] leading-[1.2] font-extrabold tracking-tight text-brevo-ink mb-3">Fair limits. Clear tracking. Zero arguments.</h2>
-              <p className="text-sm text-[#33493D] leading-relaxed">{helperText}</p>
+            <div className="max-w-[380px]">
+              <div className="text-[12px] font-extrabold tracking-[0.12em] text-brevo-teal mb-3.5 uppercase">Screen time, simplified</div>
+              <h2 className="text-[34px] leading-[1.2] font-extrabold tracking-tight text-brevo-ink mb-3.5">Fair limits. Clear tracking. Zero arguments.</h2>
+              <p className="text-[14.5px] leading-relaxed text-[#33493D]">Sign in to see today's usage, manage penalties, and stay in sync with the Guardian companion app.</p>
             </div>
-            <div className="bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-[0_14px_34px_rgba(21,36,29,0.12)] max-w-[260px]">
-              <Cloud className="w-4 h-4 text-brevo-teal flex-shrink-0" />
-              <span className="text-xs font-semibold text-brevo-ink">{cloudConfigured ? 'Cloud sync active' : 'Local login only'}</span>
+            <div className="bg-white rounded-2xl px-5 py-[18px] flex items-center gap-3 shadow-[0_14px_34px_rgba(21,36,29,0.12)] max-w-[300px]">
+              <div className="w-9 h-9 rounded-full bg-[#E8F7E0] text-brevo-teal flex items-center justify-center font-extrabold flex-shrink-0">{behavior.grade === 'N/A' ? '–' : behavior.score}</div>
+              <div>
+                <div className="text-[12.5px] font-extrabold text-brevo-ink">{behavior.grade === 'N/A' ? 'No usage data yet' : `Grade ${behavior.grade} behavior`}</div>
+                <div className="text-[11px] text-[#7E8D83]">7-day average</div>
+              </div>
             </div>
           </div>
 
           {/* Form panel */}
-          <div className="flex-1 bg-white p-8 md:p-12 flex flex-col justify-center">
-            <div className="w-full max-w-sm mx-auto">
-              <h1 className="text-2xl font-extrabold text-brevo-ink mb-1">Welcome back</h1>
-              <p className="text-xs text-[#8A9A8F] mb-7">Sign in to your dashboard</p>
+          <div className="flex-[1_1_54%] bg-white p-16 flex flex-col justify-center min-w-[340px]">
+            <div className="w-full max-w-[360px] mx-auto">
+              <h1 className="text-[26px] font-extrabold text-brevo-ink mb-1.5">Welcome back</h1>
+              <p className="text-[13.5px] text-[#7E8D83] mb-8">Sign in to your dashboard</p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-[18px]">
                 <div>
-                  <label className="block text-xs font-bold text-[#4B5C53] mb-2">Username</label>
-                  <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA89E]" />
-                    <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus
-                      className="w-full pl-11 pr-4 py-3 border border-brevo-border rounded-2xl bg-brevo-field text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
-                  </div>
+                  <label className="block text-xs font-bold text-[#4B5C53] mb-[7px]">Username</label>
+                  <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus
+                    className="w-full px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#4B5C53] mb-2">Password</label>
+                  <label className="block text-xs font-bold text-[#4B5C53] mb-[7px]">Password</label>
                   <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA89E]" />
                     <input type={showPass ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Enter password"
-                      className="w-full pl-11 pr-12 py-3 border border-brevo-border rounded-2xl bg-brevo-field text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
+                      className="w-full px-4 py-[13px] pr-12 border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
                     <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9AA89E] hover:text-[#4B5C53]">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
                   </div>
                 </div>
                 <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center gap-2 text-brevo-danger text-sm font-medium bg-brevo-danger-bg border border-brevo-danger/20 rounded-2xl px-4 py-3"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
-                <button type="submit" disabled={loading} className="w-full py-3.5 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" /> Sign in</>}</button>
-                <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-xs text-[#8A9A8F] hover:text-brevo-teal transition-colors py-2 flex items-center justify-center gap-1.5 mt-1"><KeyRound className="w-3 h-3" /> Forgot password?</button>
+                <button type="submit" disabled={loading} className="w-full py-[14px] rounded-full bg-brevo-ink text-white font-bold text-[14.5px] hover:bg-[#223830] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Sign in'}</button>
               </form>
+
+              <p className="text-center text-[12.5px] text-[#9AA89E] mt-4">Forgot access? <button type="button" onClick={() => setShowForgot(true)} className="text-brevo-teal font-bold hover:underline">Contact your admin</button></p>
 
               {showForgot && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-brevo-field border border-brevo-border rounded-2xl p-6">
@@ -130,8 +136,6 @@ export default function LoginPage() {
                   )}
                 </motion.div>
               )}
-
-              <p className="text-center text-[11px] text-[#9AA89E] mt-8">{cloudConfigured ? 'Passwords and data sync through the cloud' : 'Configure cloud to sync login across devices'}</p>
             </div>
           </div>
         </motion.div>
