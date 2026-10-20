@@ -7,14 +7,17 @@ interface ThemeContextValue {
   toggleTheme: () => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue>({ theme: 'glass', toggleTheme: () => {} });
+const ThemeContext = createContext<ThemeContextValue>({ theme: 'classic', toggleTheme: () => {} });
 
 function loadTheme(): ThemeMode {
   try {
     const saved = localStorage.getItem('screentime_theme');
     if (saved === 'classic' || saved === 'glass') return saved;
   } catch {}
-  return 'glass';
+  // 'classic' is the current (Brevo-style) redesign; 'glass' is the older look, still
+  // reachable via the theme toggle for anyone who prefers it, but no longer the default
+  // a first-time visitor sees.
+  return 'classic';
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
