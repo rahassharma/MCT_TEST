@@ -80,11 +80,11 @@ export default function Calendar({
           </span>
           <div className="flex gap-1.5">
             <button onClick={prevMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-brevo-border bg-white hover:bg-brevo-field transition-colors text-[#4B5C53]">
+              className="w-[30px] h-[30px] flex items-center justify-center rounded-full border border-[#E7ECE7] bg-white hover:bg-brevo-field transition-colors text-[#4B5C53]">
               <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <button onClick={nextMonth}
-              className="w-8 h-8 flex items-center justify-center rounded-full border border-brevo-border bg-white hover:bg-brevo-field transition-colors text-[#4B5C53]">
+              className="w-[30px] h-[30px] flex items-center justify-center rounded-full border border-[#E7ECE7] bg-white hover:bg-brevo-field transition-colors text-[#4B5C53]">
               <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>

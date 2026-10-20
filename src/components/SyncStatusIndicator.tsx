@@ -40,17 +40,24 @@ export default function SyncStatusIndicator({ status, lastSynced, cloudEnabled }
     ? `Last synced ${formatRelative(lastSynced)}`
     : 'Not yet synced';
 
+  // Classic: match the mockup's pill exactly (bg #F1F8EC, border #E3EFDC, pill radius,
+  // 7px/14px padding) and show the relative time inline — "Synced 2m ago" — not just
+  // "Synced", with the time hidden in a hover tooltip.
+  const displayLabel = !isGlass && status === 'synced' && lastSynced
+    ? `${s.label} ${formatRelative(lastSynced)}`
+    : s.label;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className={`flex items-center gap-1.5 text-[10px] font-medium ${s.color} ${
-        isGlass ? 'bg-white/50 rounded-full px-2.5 py-1' : ''
+      className={`flex items-center gap-1.5 text-[10px] font-medium rounded-full ${
+        isGlass ? 'bg-white/50 px-2.5 py-1 ' + s.color : 'bg-[#F1F8EC] border border-[#E3EFDC] px-3.5 py-[7px] text-[12.5px] font-semibold text-[#2C4A3B]'
       }`}
       title={lastSyncedLabel}
     >
-      <Icon className={`w-3 h-3 ${s.spin ? 'animate-spin' : ''}`} />
-      <span className="hidden sm:inline">{s.label}</span>
+      <Icon className={`${isGlass ? 'w-3 h-3' : 'w-3.5 h-3.5 text-brevo-teal'} ${s.spin ? 'animate-spin' : ''}`} />
+      <span className="hidden sm:inline">{displayLabel}</span>
     </motion.div>
   );
 }

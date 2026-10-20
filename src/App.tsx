@@ -79,16 +79,16 @@ function Dashboard() {
             <div className="flex items-center gap-2.5 flex-wrap">
               {syncIndicator}
               <button
-                className="w-9 h-9 rounded-full border border-brevo-border bg-white flex items-center justify-center text-[#4B5C53]"
+                className="w-9 h-9 rounded-full border border-[#E7ECE7] bg-white flex items-center justify-center text-[#4B5C53]"
               >
                 <Sun className="w-4 h-4" />
               </button>
               <button onClick={() => setShowSettings(true)} title="Settings"
-                className="w-9 h-9 rounded-full border border-brevo-border bg-white hover:bg-brevo-field flex items-center justify-center transition-colors text-[#4B5C53] hover:text-brevo-ink">
+                className="w-9 h-9 rounded-full border border-[#E7ECE7] bg-white hover:bg-brevo-field flex items-center justify-center transition-colors text-[#4B5C53] hover:text-brevo-ink">
                 <Settings2 className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-2 border border-brevo-border rounded-full pl-1.5 pr-2.5 py-1.5">
+              <div className="flex items-center gap-2 border border-[#E7ECE7] rounded-full pl-1.5 pr-2.5 py-1.5">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
                   isAdmin ? 'bg-brevo-ink' : 'bg-[#8A9A8F]'
                 }`}>
