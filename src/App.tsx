@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Sparkles, LogOut, Shield, Settings2 } from 'lucide-react';
+import { Monitor, Sparkles, LogOut, Shield, Settings2, Clock, Gift, Ban, Award, CalendarDays, PenSquare } from 'lucide-react';
 import Calendar from './components/Calendar';
 import SpellInput from './components/SpellInput';
 import StatsPanel from './components/StatsPanel';
@@ -102,7 +102,9 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Hero */}
+          {/* Hero — matches the design reference exactly: headline + CTA buttons on the
+              left, a floating white mini-stat preview card on the right, all wired to
+              real computed data (no mockup placeholder numbers). */}
           <div className="bg-brevo-lime rounded-[32px] px-8 sm:px-10 py-9 sm:py-11 mb-7 flex flex-wrap items-center gap-8">
             <div className="flex-1 min-w-[280px]">
               <div className="text-[11px] font-extrabold tracking-[0.12em] text-brevo-teal mb-3 uppercase">Screen time, simplified</div>
@@ -112,6 +114,20 @@ function Dashboard() {
               <p className="text-[15px] text-[#33493D] max-w-md mb-5">
                 Track daily usage, manage penalties, and keep screen time fair.
               </p>
+              <div className="flex flex-wrap items-center gap-3 mb-5">
+                <button
+                  onClick={() => document.getElementById('log-time-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="inline-flex items-center gap-2 bg-brevo-ink text-white rounded-full px-5 py-2.5 text-sm font-bold shadow-[0_10px_24px_rgba(15,30,22,0.18)] hover:bg-[#1A2E22] transition-colors"
+                >
+                  <PenSquare className="w-4 h-4" /> Log time
+                </button>
+                <button
+                  onClick={() => document.getElementById('calendar-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="inline-flex items-center gap-2 bg-white/70 border border-brevo-ink/15 text-brevo-ink rounded-full px-5 py-2.5 text-sm font-bold hover:bg-white transition-colors"
+                >
+                  <CalendarDays className="w-4 h-4" /> View calendar
+                </button>
+              </div>
               <div className="flex items-center gap-2 text-sm font-bold text-[#1F3A2C]">
                 <span className={`w-2 h-2 rounded-full ${
                   todayPenalty.totalTime > todayPenalty.effectiveLimit ? 'bg-red-500' : 'bg-[#2DA86B]'
@@ -119,30 +135,76 @@ function Dashboard() {
                 {todayPenalty.totalTime} / {todayPenalty.effectiveLimit} min used today
               </div>
             </div>
+
+            {/* Floating mini-stat preview card */}
+            <div className="bg-white rounded-[22px] p-5 shadow-[0_20px_40px_rgba(21,36,29,0.14)] grid grid-cols-2 gap-3 min-w-[240px]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#E8F7E0] text-brevo-teal flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">{todayPenalty.totalTime}min</div>
+                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Time used</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#DFF8C8] text-[#4C8A1F] flex items-center justify-center flex-shrink-0">
+                  <Gift className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">+{todayPenalty.bonusTime}min</div>
+                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Bonus</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#FBE2E2] text-[#C0382F] flex items-center justify-center flex-shrink-0">
+                  <Ban className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">{todayPenalty.penaltyMinutes}min</div>
+                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Penalty</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-[#F0F2EE] text-brevo-ink flex items-center justify-center flex-shrink-0">
+                  <Award className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">
+                    {behaviorScore.grade === 'N/A' ? '–' : `${behaviorScore.score}/${behaviorScore.grade}`}
+                  </div>
+                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Score</div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-6">
             <div className="space-y-6">
-              <SpellInput
-                dateKey={state.selectedDate}
-                dailyData={selectedData}
-                isFullyBlocked={blockStatus.fullBlock}
-                blockedMinutes={blockStatus.minutes}
-                effectiveLimit={penaltyInfo.effectiveLimit}
-                isFutureDate={isFutureSelected}
-                onUpdate={updateSpells}
-                onReset={resetSpells}
-                onOverride={() => setShowOverride(true)}
-                isAdmin={isAdmin}
-              />
-              <Calendar
-                month={state.currentMonth}
-                year={state.currentYear}
-                selectedDate={state.selectedDate}
-                blockedDates={state.blockedDates}
-                onSelectDate={selectDate}
-                onChangeMonth={setMonth}
-              />
+              <div id="log-time-section">
+                <SpellInput
+                  dateKey={state.selectedDate}
+                  dailyData={selectedData}
+                  isFullyBlocked={blockStatus.fullBlock}
+                  blockedMinutes={blockStatus.minutes}
+                  effectiveLimit={penaltyInfo.effectiveLimit}
+                  isFutureDate={isFutureSelected}
+                  onUpdate={updateSpells}
+                  onReset={resetSpells}
+                  onOverride={() => setShowOverride(true)}
+                  isAdmin={isAdmin}
+                />
+              </div>
+              <div id="calendar-section">
+                <Calendar
+                  month={state.currentMonth}
+                  year={state.currentYear}
+                  selectedDate={state.selectedDate}
+                  blockedDates={state.blockedDates}
+                  onSelectDate={selectDate}
+                  onChangeMonth={setMonth}
+                />
+              </div>
             </div>
 
             <div className="space-y-6">

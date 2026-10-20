@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Clock, TrendingUp, Gift, AlertTriangle, Ban, BarChart3 } from 'lucide-react';
+import { Clock, TrendingUp, Gift, AlertTriangle, Ban, BarChart3, ArrowRight } from 'lucide-react';
 import type { PenaltyInfo, DailyData } from '../types';
 import { useTheme } from '../ThemeContext';
 
@@ -18,7 +18,7 @@ interface StatsPanelProps {
    ═══════════════════════════════════════ */
 function ClassicStatCard({ label, value, unit, variant, icon: Icon }: {
   label: string; value: number; unit: string;
-  variant?: 'default' | 'accent' | 'danger' | 'success' | 'warning';
+  variant?: 'default' | 'accent' | 'danger' | 'success' | 'warning' | 'muted';
   icon?: React.ComponentType<{ className?: string }>;
 }) {
   const chipStyles: Record<string, string> = {
@@ -27,10 +27,11 @@ function ClassicStatCard({ label, value, unit, variant, icon: Icon }: {
     danger: 'bg-brevo-danger-bg text-brevo-danger',
     success: 'bg-[#DFF8C8] text-[#4C8A1F]',
     warning: 'bg-brevo-orange-bg text-brevo-orange',
+    muted: 'bg-[#EEEEEE] text-[#555555]',
   };
   const valueColors: Record<string, string> = {
     default: 'text-brevo-ink', accent: 'text-brevo-ink', danger: 'text-brevo-danger',
-    success: 'text-[#4C8A1F]', warning: 'text-brevo-orange',
+    success: 'text-[#4C8A1F]', warning: 'text-brevo-orange', muted: 'text-brevo-ink',
   };
   const v = variant || 'default';
   return (
@@ -221,12 +222,14 @@ export default function StatsPanel({ penaltyInfo, dailyData, isBlocked, isFullBl
           )}
         </div>
 
-        {/* Stat cards */}
+        {/* Stat cards — matches the design reference's 6-tile grid exactly */}
         <div className="grid grid-cols-2 gap-3">
-          <ClassicStatCard label="Total Time" value={totalTime} unit="minutes" variant={isOver ? 'danger' : 'accent'} icon={Clock} />
-          <ClassicStatCard label="Bonus Time" value={bonusTime} unit="minutes available" variant="success" icon={Gift} />
-          <ClassicStatCard label="Excess Time" value={excessTime} unit="minutes over limit" variant={excessTime > 0 ? 'warning' : 'default'} icon={AlertTriangle} />
+          <ClassicStatCard label="Time used" value={totalTime} unit="minutes" variant={isOver ? 'danger' : 'accent'} icon={Clock} />
+          <ClassicStatCard label="Effective limit" value={effectiveLimit} unit="minutes" variant="default" icon={BarChart3} />
+          <ClassicStatCard label="Bonus time" value={bonusTime} unit="minutes available" variant="success" icon={Gift} />
+          <ClassicStatCard label="Excess time" value={excessTime} unit="minutes over limit" variant={excessTime > 0 ? 'warning' : 'default'} icon={AlertTriangle} />
           <ClassicStatCard label="Penalty" value={penaltyMinutes} unit="minutes blocked tomorrow" variant={penaltyMinutes > 0 ? 'danger' : 'default'} icon={Ban} />
+          <ClassicStatCard label="Carry forward" value={carryForward} unit="minutes" variant="muted" icon={ArrowRight} />
         </div>
 
         <PenaltyBreakdown />
