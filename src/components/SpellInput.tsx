@@ -233,13 +233,6 @@ export default function SpellInput({
               )}
             </>
           )}
-
-          {isAdmin && (
-            <button onClick={onOverride}
-              className="w-full py-3 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830] transition-colors">
-              Admin Override
-            </button>
-          )}
         </div>
         {modals}
       </>

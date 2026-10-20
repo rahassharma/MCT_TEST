@@ -69,16 +69,37 @@ export function useStore(userKey: string | null) {
   }, [userKey]);
 
   const initialSyncDone = useRef<string | null>(null);
+  // Tracks whether the user edited data locally (Save/Reset/override/settings/etc, anything
+  // through updateState) while the one-time initial cloud fetch below is still in flight.
+  // Without this, a slow fetch resolving after a fresh Save would call setState(merged) with
+  // the OLDER server snapshot and silently stomp the edit — Save would appear to do nothing,
+  // and every metric derived from state (behavior score, on-time %, today's used/limit, the
+  // weekly chart) would look "unaffected", exactly because the edit really was discarded a
+  // moment after it was made.
+  const hasLocalEditRef = useRef(false);
   useEffect(() => {
     if (!cloudEnabled || !userKey) return;
     if (initialSyncDone.current === userKey) return;
     initialSyncDone.current = userKey;
+    hasLocalEditRef.current = false;
 
     let cancelled = false;
     (async () => {
       setSyncStatus('loading');
       const cloudState = await fetchUserData(userKey);
       if (cancelled) return;
+
+      if (hasLocalEditRef.current) {
+        // A local edit landed while this fetch was in flight — it's newer than what we just
+        // read, so keep it and push it to the cloud instead of overwriting it with the fetch.
+        const localState = loadState(userKey);
+        setSyncStatus('syncing');
+        const ok = await saveUserData(userKey, localState);
+        if (cancelled) return;
+        setSyncStatus(ok ? 'synced' : 'error');
+        if (ok) setLastSynced(new Date());
+        return;
+      }
 
       if (cloudState) {
         const merged: AppState = { ...defaultState(), ...cloudState, settings: { ...DEFAULT_SETTINGS, ...(cloudState.settings || {}) } };
@@ -122,6 +143,7 @@ export function useStore(userKey: string | null) {
   }, [cloudEnabled, userKey]);
 
   const updateState = useCallback((updater: (prev: AppState) => AppState) => {
+    hasLocalEditRef.current = true;
     setState(prev => {
       const next = updater(prev);
       saveState(userKey, next);
