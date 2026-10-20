@@ -10,13 +10,10 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue>({ theme: 'classic', toggleTheme: () => {} });
 
 function loadTheme(): ThemeMode {
-  try {
-    const saved = localStorage.getItem('screentime_theme');
-    if (saved === 'classic' || saved === 'glass') return saved;
-  } catch {}
-  // 'classic' is the current (Brevo-style) redesign; 'glass' is the older look, still
-  // reachable via the theme toggle for anyone who prefers it, but no longer the default
-  // a first-time visitor sees.
+  // Always 'classic' — the approved Brevo-style redesign is the only design now, with no
+  // toggle to reach the old 'glass' look. This ignores any 'screentime_theme' value a
+  // browser saved from before the toggle was removed, so a visitor who previously switched
+  // to glass doesn't keep landing on the old design forever with no way back.
   return 'classic';
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Sparkles, LogOut, Shield, Settings2, Clock, Gift, AlertTriangle, CalendarDays, PenSquare } from 'lucide-react';
+import { Monitor, Sparkles, LogOut, Shield, Settings2, Clock, Gift, AlertTriangle, CalendarDays, PenSquare, Sun } from 'lucide-react';
 import Calendar from './components/Calendar';
 import SpellInput from './components/SpellInput';
 import StatsPanel from './components/StatsPanel';
@@ -78,7 +78,11 @@ function Dashboard() {
             </div>
             <div className="flex items-center gap-2.5 flex-wrap">
               {syncIndicator}
-              <ThemeToggle />
+              <button
+                className="w-9 h-9 rounded-full border border-brevo-border bg-white flex items-center justify-center text-[#4B5C53]"
+              >
+                <Sun className="w-4 h-4" />
+              </button>
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-full border border-brevo-border bg-white hover:bg-brevo-field flex items-center justify-center transition-colors text-[#4B5C53] hover:text-brevo-ink">
                 <Settings2 className="w-4 h-4" />
