@@ -139,7 +139,7 @@ export function useStore(userKey: string | null) {
   }, [updateState]);
 
   const getDailyData = useCallback((dateKey: string): DailyData => {
-    return state.dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0 };
+    return state.dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0, deviceMinutes: 0 };
   }, [state.dailyData]);
 
   const recalculateBlocks = useCallback((dailyData: Record<string, DailyData>, settings: AppSettings): Record<string, number> => {
@@ -149,7 +149,7 @@ export function useStore(userKey: string | null) {
 
     for (const dateKey of dates) {
       const data = dailyData[dateKey];
-      const total = data.spell1 + data.spell2 + data.spell3;
+      const total = data.spell1 + data.spell2 + data.spell3 + (data.deviceMinutes || 0);
       const effectiveLimit = getEffectiveLimit(blocked[dateKey], maxTime);
       const excess = Math.max(0, total - effectiveLimit);
       const penalty = Math.round(excess * penaltyRatio);
@@ -217,6 +217,24 @@ export function useStore(userKey: string | null) {
     });
   }, [updateState, recalculateBlocks]);
 
+  /**
+   * Merge in minutes reported by the phone-side Guardian app (verified supervised-profile
+   * usage, or a PIN bonus-time grant). Adds to any existing deviceMinutes for that day rather
+   * than replacing it, since the phone calls this incrementally throughout the day.
+   */
+  const updateDeviceMinutes = useCallback((dateKey: string, minutesToAdd: number) => {
+    if (isFutureDateKey(dateKey) || minutesToAdd <= 0) return;
+    updateState(s => {
+      const existing = s.dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0, deviceMinutes: 0 };
+      const newDailyData = {
+        ...s.dailyData,
+        [dateKey]: { ...existing, deviceMinutes: (existing.deviceMinutes || 0) + minutesToAdd },
+      };
+      const newBlocked = recalculateBlocks(newDailyData, s.settings);
+      return { ...s, dailyData: newDailyData, blockedDates: newBlocked };
+    });
+  }, [updateState, recalculateBlocks]);
+
   const resetSpells = useCallback((dateKey: string) => {
     if (isFutureDateKey(dateKey)) return;
     updateState(s => {
@@ -246,7 +264,7 @@ export function useStore(userKey: string | null) {
 
   const getPenaltyInfo = useCallback((dateKey: string): PenaltyInfo => {
     const data = getDailyData(dateKey);
-    const total = data.spell1 + data.spell2 + data.spell3;
+    const total = data.spell1 + data.spell2 + data.spell3 + (data.deviceMinutes || 0);
     const blockVal = state.blockedDates[dateKey];
     const effectiveLimit = getEffectiveLimit(blockVal, state.settings.maxTime);
     const bonusTime = Math.max(0, effectiveLimit - total);
@@ -340,7 +358,7 @@ export function useStore(userKey: string | null) {
   return {
     state, syncStatus, lastSynced, cloudEnabled,
     selectDate, setMonth, getDailyData,
-    updateSpells, resetSpells, overrideBlock,
+    updateSpells, updateDeviceMinutes, resetSpells, overrideBlock,
     getPenaltyInfo, isBlocked, getWeeklyStats, getBehaviorScore,
     updateSettings, resetAllData, replaceState, forceSync,
   };
@@ -349,11 +367,11 @@ export function useStore(userKey: string | null) {
 function getPenaltyInfoInternal(
   dateKey: string,
   blockedDates: Record<string, number>,
-  dailyData: Record<string, { spell1: number; spell2: number; spell3: number }>,
+  dailyData: Record<string, { spell1: number; spell2: number; spell3: number; deviceMinutes?: number }>,
   settings: AppSettings
 ) {
-  const data = dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0 };
-  const total = data.spell1 + data.spell2 + data.spell3;
+  const data = dailyData[dateKey] || { spell1: 0, spell2: 0, spell3: 0, deviceMinutes: 0 };
+  const total = data.spell1 + data.spell2 + data.spell3 + (data.deviceMinutes || 0);
   const blockVal = blockedDates[dateKey];
   const effectiveLimit = getEffectiveLimit(blockVal, settings.maxTime);
   const bonusTime = Math.max(0, effectiveLimit - total);

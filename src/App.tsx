@@ -61,42 +61,62 @@ function Dashboard() {
   );
 
   /* ════════════════════════════════════
-     CLASSIC LAYOUT
+     CLASSIC LAYOUT — Brevo-inspired: lime hero band, deep-ink pill
+     buttons/avatars, soft rounded cards. Same data/props as before;
+     only the shell markup and classes changed.
      ════════════════════════════════════ */
   if (!isGlass) {
     return (
-      <div className="min-h-screen bg-white text-[#0f0f0f]" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
-        <div className="max-w-[1400px] mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-10">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight mb-1">Screen Time</h1>
-              <p className="text-base text-[#666]">Track daily usage and manage penalties</p>
+      <div className="min-h-screen bg-white text-[#15241D]" style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
+        <div className="max-w-[1360px] mx-auto px-6 py-7">
+
+          {/* Top nav */}
+          <div className="flex items-center justify-between mb-7 gap-3 flex-wrap">
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-extrabold tracking-tight text-brevo-teal">STLOG</span>
+              <span className="text-xl font-extrabold tracking-tight">Track</span>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-sm text-[#666] hidden sm:block">
-                Today: <strong>{todayPenalty.totalTime}</strong> / {todayPenalty.effectiveLimit} min
-              </div>
+            <div className="flex items-center gap-2.5 flex-wrap">
               {syncIndicator}
               <ThemeToggle />
               <button onClick={() => setShowSettings(true)} title="Settings"
-                className="w-9 h-9 rounded-lg border border-[#e5e5e5] bg-white hover:bg-[#f5f5f5] flex items-center justify-center transition-colors text-[#666] hover:text-[#0f0f0f]">
+                className="w-9 h-9 rounded-full border border-brevo-border bg-white hover:bg-brevo-field flex items-center justify-center transition-colors text-[#4B5C53] hover:text-brevo-ink">
                 <Settings2 className="w-4 h-4" />
               </button>
 
-              <div className="flex items-center gap-2 border border-[#e5e5e5] rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 border border-brevo-border rounded-full pl-1.5 pr-2.5 py-1.5">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-                  isAdmin ? 'bg-[#0f0f0f]' : 'bg-[#666]'
+                  isAdmin ? 'bg-brevo-ink' : 'bg-[#8A9A8F]'
                 }`}>
                   {userInitial}
                 </div>
                 <div className="hidden sm:block">
                   <div className="text-sm font-semibold leading-tight">{user?.username}</div>
-                  <div className="text-[10px] text-[#999] leading-tight">{isAdmin ? 'Admin' : 'User'}</div>
+                  <div className="text-[10px] text-[#8A9A8F] leading-tight">{isAdmin ? 'Admin' : 'User'}</div>
                 </div>
                 <button onClick={logout} title="Sign out"
-                  className="ml-1 p-1.5 rounded-md hover:bg-[#f5f5f5] transition-colors text-[#999] hover:text-[#0f0f0f]">
+                  className="ml-1 p-1.5 rounded-full hover:bg-brevo-field transition-colors text-[#9AA89E] hover:text-brevo-ink">
                   <LogOut className="w-3.5 h-3.5" />
                 </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Hero */}
+          <div className="bg-brevo-lime rounded-[32px] px-8 sm:px-10 py-9 sm:py-11 mb-7 flex flex-wrap items-center gap-8">
+            <div className="flex-1 min-w-[280px]">
+              <div className="text-[11px] font-extrabold tracking-[0.12em] text-brevo-teal mb-3 uppercase">Screen time, simplified</div>
+              <h1 className="text-[28px] sm:text-[34px] leading-[1.15] font-extrabold tracking-tight text-brevo-ink mb-3">
+                Hello, {user?.username} — here's today's progress
+              </h1>
+              <p className="text-[15px] text-[#33493D] max-w-md mb-5">
+                Track daily usage, manage penalties, and keep screen time fair.
+              </p>
+              <div className="flex items-center gap-2 text-sm font-bold text-[#1F3A2C]">
+                <span className={`w-2 h-2 rounded-full ${
+                  todayPenalty.totalTime > todayPenalty.effectiveLimit ? 'bg-red-500' : 'bg-[#2DA86B]'
+                }`} />
+                {todayPenalty.totalTime} / {todayPenalty.effectiveLimit} min used today
               </div>
             </div>
           </div>
@@ -146,6 +166,10 @@ function Dashboard() {
 
           <div className="mt-6">
             <WeeklyChart stats={weeklyStats} />
+          </div>
+
+          <div className="text-center text-[11px] text-[#9AA89E] mt-10 pb-2 leading-relaxed">
+            Exceeding limit incurs 1.5× penalty &nbsp;·&nbsp; Penalty ≥ 60 min fully blocks next day &amp; carries forward &nbsp;·&nbsp; Penalty &lt; 60 min reduces next day's limit
           </div>
         </div>
 

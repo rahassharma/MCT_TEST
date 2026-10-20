@@ -69,11 +69,11 @@ export default function SpellInput({
   const disableEditing = isFutureDate || isFullyBlocked;
 
   const futureBannerClassic = isFutureDate && (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-5 flex items-center gap-3">
-      <CalendarClock className="w-4 h-4 text-blue-700 flex-shrink-0" />
+    <div className="bg-brevo-field border border-brevo-border rounded-2xl p-4 mb-5 flex items-center gap-3">
+      <CalendarClock className="w-4 h-4 text-brevo-teal flex-shrink-0" />
       <div>
-        <p className="text-sm font-semibold text-blue-700">Future date is view-only</p>
-        <p className="text-xs text-blue-600">You can’t add or reset time for tomorrow or later dates.</p>
+        <p className="text-sm font-semibold text-brevo-ink">Future date is view-only</p>
+        <p className="text-xs text-[#4B5C53]">You can’t add or reset time for tomorrow or later dates.</p>
       </div>
     </div>
   );
@@ -109,77 +109,85 @@ export default function SpellInput({
     </>
   );
 
-  /* ───── CLASSIC THEME ───── */
+  /* ───── CLASSIC THEME — Brevo-inspired ───── */
   if (!isGlass) {
     return (
       <>
-        <div className="bg-white border border-[#e5e5e5] rounded-xl p-7 transition-all duration-300 hover:border-[#d0d0d0] hover:shadow-sm">
-          <div className="text-lg font-semibold text-[#0f0f0f] mb-1">Log Time</div>
-          <div className="text-sm text-[#666] mb-5">{formatDate(dateKey)}</div>
+        <div className="bg-white border border-brevo-border rounded-2xl p-6 transition-all duration-300">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-base font-extrabold text-brevo-ink">Log time</div>
+            {isAdmin && (
+              <button onClick={onOverride}
+                className="flex items-center gap-1.5 text-xs font-bold text-brevo-teal hover:text-[#0a5c4c] transition-colors">
+                <Lock className="w-3.5 h-3.5" /> Override
+              </button>
+            )}
+          </div>
+          <div className="text-xs text-[#8A9A8F] mb-5">{formatDate(dateKey)}</div>
 
           {futureBannerClassic}
 
           {!isAdmin && (
             <div className="mb-5 space-y-3">
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
-                <Lock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <div className="bg-brevo-orange-bg border border-brevo-orange/30 rounded-2xl p-4 flex items-center gap-3">
+                <Lock className="w-4 h-4 text-brevo-orange flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-amber-700">View Only</p>
-                  <p className="text-xs text-amber-600">Data entered by admin</p>
+                  <p className="text-sm font-semibold text-brevo-orange">View Only</p>
+                  <p className="text-xs text-brevo-orange/80">Data entered by admin</p>
                 </div>
               </div>
               {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > 0 && (
-                <div className="bg-[#f5f5f5] border border-[#e5e5e5] rounded-xl p-4">
+                <div className="bg-brevo-field border border-brevo-border rounded-2xl p-4">
                   <div className="grid grid-cols-3 gap-3 text-center mb-3">
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 1</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell1}</p><p className="text-[10px] text-[#999]">min</p></div>
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 2</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell2}</p><p className="text-[10px] text-[#999]">min</p></div>
-                    <div><p className="text-[10px] font-bold text-[#999] uppercase">Spell 3</p><p className="text-xl font-bold text-[#0f0f0f]">{dailyData.spell3}</p><p className="text-[10px] text-[#999]">min</p></div>
+                    <div><p className="text-[10px] font-bold text-[#8A9A8F] uppercase">Spell 1</p><p className="text-xl font-bold text-brevo-ink">{dailyData.spell1}</p><p className="text-[10px] text-[#9AA89E]">min</p></div>
+                    <div><p className="text-[10px] font-bold text-[#8A9A8F] uppercase">Spell 2</p><p className="text-xl font-bold text-brevo-ink">{dailyData.spell2}</p><p className="text-[10px] text-[#9AA89E]">min</p></div>
+                    <div><p className="text-[10px] font-bold text-[#8A9A8F] uppercase">Spell 3</p><p className="text-xl font-bold text-brevo-ink">{dailyData.spell3}</p><p className="text-[10px] text-[#9AA89E]">min</p></div>
                   </div>
-                  <div className={`text-center py-2 rounded-lg ${total > effectiveLimit ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
+                  <div className={`text-center py-2 rounded-xl ${total > effectiveLimit ? 'bg-brevo-danger-bg text-brevo-danger' : 'bg-[#E8F7E0] text-brevo-teal'}`}>
                     <span className="text-sm font-bold">{dailyData.spell1 + dailyData.spell2 + dailyData.spell3}</span><span className="text-xs"> / {effectiveLimit} min</span>
-                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">⚠️ Over limit by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit} min</span>}
-                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">✅ {effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} min remaining</span>}
+                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) > effectiveLimit && <span className="text-xs ml-2">Over limit by {dailyData.spell1 + dailyData.spell2 + dailyData.spell3 - effectiveLimit} min</span>}
+                    {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) <= effectiveLimit && <span className="text-xs ml-2">{effectiveLimit - (dailyData.spell1 + dailyData.spell2 + dailyData.spell3)} min remaining</span>}
                   </div>
                 </div>
               )}
               {(dailyData.spell1 + dailyData.spell2 + dailyData.spell3) === 0 && !isFutureDate && (
-                <div className="text-center py-4 bg-[#fafafa] border border-[#e5e5e5] rounded-xl">
-                  <p className="text-sm text-[#999]">No data entered for this date yet</p>
+                <div className="text-center py-4 bg-brevo-field border border-brevo-border rounded-2xl">
+                  <p className="text-sm text-[#9AA89E]">No data entered for this date yet</p>
                 </div>
               )}
             </div>
           )}
 
           {isFullyBlocked && (
-            <div className="bg-[#fee2e2] border border-[#ef4444] rounded-lg p-4 mb-5 flex items-center gap-3">
-              <Lock className="w-4 h-4 text-[#991b1b] flex-shrink-0" />
+            <div className="bg-brevo-danger-bg border border-brevo-danger/30 rounded-2xl p-4 mb-5 flex items-center gap-3">
+              <Lock className="w-4 h-4 text-brevo-danger flex-shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-[#991b1b]">Day is Fully Blocked</p>
-                <p className="text-xs text-[#991b1b]/70">No screen time allowed due to penalty</p>
+                <p className="text-sm font-semibold text-brevo-danger">Day is Fully Blocked</p>
+                <p className="text-xs text-brevo-danger/70">No screen time allowed due to penalty</p>
               </div>
             </div>
           )}
 
           {!isFullyBlocked && blockedMinutes > 0 && (
-            <div className="bg-orange-50 border border-orange-300 rounded-lg p-4 mb-5 flex items-center gap-3">
-              <Timer className="w-4 h-4 text-orange-700 flex-shrink-0" />
+            <div className="bg-brevo-orange-bg border border-brevo-orange/30 rounded-2xl p-4 mb-5 flex items-center gap-3">
+              <Timer className="w-4 h-4 text-brevo-orange flex-shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-orange-700">{blockedMinutes} min blocked</p>
-                <p className="text-xs text-orange-600">Available time: {effectiveLimit} min</p>
+                <p className="text-sm font-semibold text-brevo-orange">{blockedMinutes} min blocked</p>
+                <p className="text-xs text-brevo-orange/80">Available time: {effectiveLimit} min</p>
               </div>
             </div>
           )}
 
           {!isFullyBlocked && (
             <>
-              <div className="grid grid-cols-3 gap-4 mb-5">
+              <div className="grid grid-cols-3 gap-3 mb-5">
                 {[
                   { label: 'Spell 1', value: spell1, setter: setSpell1 },
                   { label: 'Spell 2', value: spell2, setter: setSpell2 },
                   { label: 'Spell 3', value: spell3, setter: setSpell3 },
                 ].map(s => (
                   <div key={s.label}>
-                    <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">{s.label}</label>
+                    <label className="block text-[11px] font-bold text-[#8A9A8F] uppercase tracking-wide mb-2">{s.label}</label>
                     <input
                       type="number"
                       value={s.value || ''}
@@ -188,16 +196,18 @@ export default function SpellInput({
                       readOnly={isFutureDate || !isAdmin}
                       disabled={isFutureDate || !isAdmin}
                       onChange={e => s.setter(Math.max(0, parseInt(e.target.value) || 0))}
-                      className={`w-full px-3 py-2.5 border border-[#e5e5e5] rounded-lg text-base bg-[#fafafa] font-medium transition-all ${
-                        isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)]'
+                      className={`w-full px-3.5 py-3 border border-brevo-border rounded-2xl text-base bg-brevo-field font-bold text-brevo-ink transition-all ${
+                        isFutureDate ? 'opacity-60 cursor-not-allowed' : 'focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)]'
                       }`}
                     />
                   </div>
                 ))}
               </div>
 
-              <div className={`text-center text-sm font-semibold mb-4 ${isOverLimit ? 'text-[#ef4444]' : 'text-[#666]'}`}>
-                Total: {total} / {effectiveLimit} min
+              <div className="flex items-center justify-center mb-4">
+                <div className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold ${isOverLimit ? 'bg-brevo-danger-bg text-brevo-danger' : 'bg-brevo-field text-brevo-ink'}`}>
+                  {total} <span className="text-xs font-semibold opacity-70">/ {effectiveLimit} min</span>
+                </div>
               </div>
 
               {isAdmin && (
@@ -205,16 +215,16 @@ export default function SpellInput({
                   <button
                     onClick={requestSave}
                     disabled={disableEditing}
-                    className="py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-1.5 py-3 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Update
+                    <Save className="w-3.5 h-3.5" /> Save
                   </button>
                   <button
                     onClick={requestReset}
                     disabled={isFutureDate}
-                    className="py-2.5 rounded-lg border border-[#e5e5e5] bg-white text-[#0f0f0f] font-semibold text-sm hover:bg-[#f5f5f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="flex items-center justify-center gap-1.5 py-3 rounded-full border border-brevo-border bg-white text-[#4B5C53] font-bold text-sm hover:bg-brevo-field transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Reset
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset
                   </button>
                 </div>
               )}
@@ -223,7 +233,7 @@ export default function SpellInput({
 
           {isAdmin && (
             <button onClick={onOverride}
-              className="w-full py-2.5 rounded-lg bg-[#ef4444] text-white font-semibold text-sm hover:bg-[#dc2626] transition-colors flex items-center justify-center gap-2">
+              className="w-full py-3 rounded-full bg-brevo-danger text-white font-bold text-sm hover:bg-[#a52e26] transition-colors flex items-center justify-center gap-2">
               <ShieldAlert className="w-4 h-4" /> Admin Override
             </button>
           )}

@@ -11,7 +11,7 @@ interface BehaviorScoreProps {
 }
 
 function getScoreColor(score: number): { primary: string; gradient: string; classic: string } {
-  if (score >= 80) return { primary: '#22c55e', gradient: 'from-green-400 to-emerald-500', classic: 'text-green-600' };
+  if (score >= 80) return { primary: '#0E7F68', gradient: 'from-green-400 to-emerald-500', classic: 'text-brevo-teal' };
   if (score >= 60) return { primary: '#eab308', gradient: 'from-yellow-400 to-orange-500', classic: 'text-yellow-600' };
   if (score >= 40) return { primary: '#f97316', gradient: 'from-orange-400 to-red-500', classic: 'text-orange-600' };
   return { primary: '#ef4444', gradient: 'from-red-500 to-rose-600', classic: 'text-red-600' };
@@ -24,24 +24,24 @@ export default function BehaviorScore({ score, grade, label, onTimePct, avgPenal
 
   const progress = score / 100;
 
-  /* ══════ CLASSIC ══════ */
+  /* ══════ CLASSIC — Brevo-inspired ══════ */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-[#e5e5e5] rounded-xl p-7">
+      <div className="bg-white border border-brevo-border rounded-2xl p-7">
         <div className="mb-5">
-          <h3 className="text-lg font-semibold text-[#0f0f0f]">Behavior Score</h3>
-          <p className="text-sm text-[#666] mt-0.5">Based on last 7 days</p>
+          <h3 className="text-base font-extrabold text-brevo-ink">Behavior score</h3>
+          <p className="text-xs text-[#8A9A8F] mt-0.5">Based on last 7 days</p>
         </div>
 
         <div className="flex flex-col items-center">
           {/* Gauge */}
-          <div className="relative w-40 h-40 mb-4">
+          <div className="relative w-36 h-36 mb-4">
             <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
-              <circle cx="60" cy="60" r="52" fill="none" stroke="#f3f4f6" strokeWidth="8" />
+              <circle cx="60" cy="60" r="52" fill="none" stroke="#EEF2EB" strokeWidth="9" />
               <motion.circle
                 cx="60" cy="60" r="52" fill="none"
                 stroke={colors.primary}
-                strokeWidth="8"
+                strokeWidth="9"
                 strokeLinecap="round"
                 strokeDasharray={`${2 * Math.PI * 52}`}
                 initial={{ strokeDashoffset: 2 * Math.PI * 52 }}
@@ -54,37 +54,34 @@ export default function BehaviorScore({ score, grade, label, onTimePct, avgPenal
                 key={score}
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className={`text-4xl font-extrabold ${colors.classic}`}
+                className="text-3xl font-extrabold text-brevo-ink"
               >
                 {score}
               </motion.span>
-              <span className="text-xs text-[#666] font-semibold">/ 100</span>
+              <span className="text-[11px] text-[#8A9A8F] font-bold">Grade {grade}</span>
             </div>
-          </div>
-
-          {/* Grade */}
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`text-2xl font-extrabold ${colors.classic}`}>{grade}</span>
-            <span className="text-sm text-[#666]">•</span>
-            <span className="text-sm font-semibold text-[#0f0f0f]">{label}</span>
           </div>
 
           {/* Breakdown */}
-          <div className="w-full mt-5 pt-5 border-t border-[#e5e5e5] space-y-2.5">
-            <div className="flex justify-between text-sm">
-              <span className="text-[#666] flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5" /> On-time rate
-              </span>
-              <span className="font-semibold text-[#0f0f0f]">{onTimePct}%</span>
+          <div className="flex items-center gap-8 mt-1">
+            <div className="text-center">
+              <div className="text-base font-extrabold text-brevo-ink">{onTimePct}%</div>
+              <div className="text-[10.5px] text-[#8A9A8F] font-semibold flex items-center gap-1 justify-center mt-0.5">
+                <Target className="w-3 h-3" /> On-time
+              </div>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-[#666] flex items-center gap-1.5">
-                <TrendingDown className="w-3.5 h-3.5" /> Avg daily penalty
-              </span>
-              <span className={`font-semibold ${avgPenalty > 0 ? 'text-[#ef4444]' : 'text-[#0f0f0f]'}`}>
+            <div className="text-center">
+              <div className={`text-base font-extrabold ${avgPenalty > 0 ? 'text-brevo-danger' : 'text-brevo-ink'}`}>
                 {avgPenalty} min
-              </span>
+              </div>
+              <div className="text-[10.5px] text-[#8A9A8F] font-semibold flex items-center gap-1 justify-center mt-0.5">
+                <TrendingDown className="w-3 h-3" /> Avg penalty
+              </div>
             </div>
+          </div>
+
+          <div className="w-full mt-5 pt-4 border-t border-brevo-border text-center">
+            <span className="text-xs font-semibold text-[#4B5C53]">{label}</span>
           </div>
         </div>
       </div>

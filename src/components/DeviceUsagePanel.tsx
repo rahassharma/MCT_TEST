@@ -71,47 +71,49 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
     'from-indigo-500 to-violet-400',
   ];
 
-  /* ═══ CLASSIC ═══ */
+  /* ═══ CLASSIC — Brevo-inspired ═══ */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-[#e5e5e5] rounded-xl p-7">
+      <div className="bg-[#F6FBF1] border border-brevo-border rounded-2xl p-6">
         <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-2">
-            <Smartphone className="w-5 h-5 text-[#0f0f0f]" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-brevo-ink text-white flex items-center justify-center">
+              <Smartphone className="w-4 h-4" />
+            </div>
             <div>
-              <h3 className="text-lg font-semibold text-[#0f0f0f]">Device Usage</h3>
-              <p className="text-xs text-[#999]">Auto-synced from phone</p>
+              <h3 className="text-sm font-extrabold text-brevo-ink">Mobile sync</h3>
+              <p className="text-[11px] text-[#5B6F62]">Guardian companion app</p>
             </div>
           </div>
           <button onClick={loadData} disabled={loading}
-            className="p-2 rounded-lg border border-[#e5e5e5] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50">
-            <RefreshCw className={`w-4 h-4 text-[#666] ${loading ? 'animate-spin' : ''}`} />
+            className="w-8 h-8 rounded-full border border-brevo-border bg-white hover:bg-brevo-field flex items-center justify-center transition-colors disabled:opacity-50">
+            <RefreshCw className={`w-3.5 h-3.5 text-[#4B5C53] ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {!mobileSync && (
           <div className="text-center py-8">
-            <Smartphone className="w-8 h-8 text-[#ccc] mx-auto mb-3" />
-            <p className="text-sm font-semibold text-[#999]">Mobile Sync is OFF</p>
-            <p className="text-xs text-[#bbb] mt-1">Admin can enable it in Settings → Time → Mobile Sync</p>
+            <Smartphone className="w-8 h-8 text-[#B7C2B9] mx-auto mb-3" />
+            <p className="text-sm font-semibold text-[#5B6F62]">Mobile Sync is OFF</p>
+            <p className="text-xs text-[#8A9A8F] mt-1">Admin can enable it in Settings → Time → Mobile Sync</p>
           </div>
         )}
 
         {mobileSync && !hasData && (
           <div className="text-center py-8">
-            <WifiOff className="w-8 h-8 text-[#ccc] mx-auto mb-3" />
-            <p className="text-sm text-[#999]">No device data yet</p>
-            <p className="text-xs text-[#bbb] mt-1">Install the tracker app on the phone to start syncing</p>
+            <WifiOff className="w-8 h-8 text-[#B7C2B9] mx-auto mb-3" />
+            <p className="text-sm text-[#5B6F62]">No device data yet</p>
+            <p className="text-xs text-[#8A9A8F] mt-1">Install the tracker app on the phone to start syncing</p>
           </div>
         )}
 
         {hasToday && todayData && (
           <>
-            <div className={`text-center p-4 rounded-xl mb-4 ${todayData.minutes_played > 60 ? 'bg-red-50 border border-red-200' : 'bg-blue-50 border border-blue-200'}`}>
-              <div className={`text-3xl font-bold ${todayData.minutes_played > 60 ? 'text-red-500' : 'text-blue-600'}`}>
+            <div className={`text-center p-4 rounded-2xl mb-4 ${todayData.minutes_played > 60 ? 'bg-brevo-danger-bg' : 'bg-white border border-brevo-border'}`}>
+              <div className={`text-3xl font-extrabold ${todayData.minutes_played > 60 ? 'text-brevo-danger' : 'text-brevo-ink'}`}>
                 {todayData.minutes_played}
               </div>
-              <div className="text-xs text-[#666] mt-1">minutes on phone today</div>
+              <div className="text-xs text-[#5B6F62] mt-1">minutes on phone today</div>
             </div>
 
             {todayData.app_breakdown && Object.keys(todayData.app_breakdown).length > 0 && (
@@ -124,12 +126,12 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
                     const pct = maxMins > 0 ? (m / maxMins) * 100 : 0;
                     return (
                       <div key={pkg} className="flex items-center gap-3">
-                        <div className="w-28 text-xs font-semibold text-[#0f0f0f] truncate">{friendlyName(pkg)}</div>
-                        <div className="flex-1 bg-[#f0f0f0] rounded-full h-5 overflow-hidden">
+                        <div className="w-28 text-xs font-semibold text-brevo-ink truncate">{friendlyName(pkg)}</div>
+                        <div className="flex-1 bg-white rounded-full h-5 overflow-hidden border border-brevo-border">
                           <div className={`h-full rounded-full bg-gradient-to-r ${barColors[idx % barColors.length]}`}
                             style={{ width: `${pct}%`, minWidth: m > 0 ? '8px' : '0' }} />
                         </div>
-                        <div className="w-12 text-right text-xs font-bold text-[#333]">{m}m</div>
+                        <div className="w-12 text-right text-xs font-bold text-[#33493D]">{m}m</div>
                       </div>
                     );
                   })}
@@ -139,8 +141,8 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
         )}
 
         {hasData && (
-          <div className="border-t border-[#e5e5e5] pt-4 mt-4">
-            <p className="text-xs font-semibold text-[#999] uppercase tracking-wider mb-3">Last 7 Days</p>
+          <div className="border-t border-brevo-border pt-4 mt-4">
+            <p className="text-[10px] font-bold text-[#8A9A8F] uppercase tracking-wider mb-3">Last 7 days</p>
             <div className="flex items-end gap-2" style={{ height: '80px' }}>
               {data.slice().reverse().map((row, _i) => {
                 const maxMins = Math.max(...data.map(d => d.minutes_played), 60);
@@ -149,11 +151,11 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
                 const isOver = row.minutes_played > 60;
                 return (
                   <div key={row.date} className="flex-1 flex flex-col items-center gap-1">
-                    <span className={`text-[10px] font-bold ${isOver ? 'text-red-500' : 'text-[#333]'}`}>{row.minutes_played || '–'}</span>
-                    <div className="w-full bg-[#f0f0f0] rounded-t" style={{ height: `${h}%`, minHeight: '2px' }}>
-                      <div className={`w-full h-full rounded-t ${isOver ? 'bg-red-400' : 'bg-[#0f0f0f]'}`} />
+                    <span className={`text-[10px] font-bold ${isOver ? 'text-brevo-danger' : 'text-[#33493D]'}`}>{row.minutes_played || '–'}</span>
+                    <div className="w-full bg-white rounded-t-md border border-brevo-border" style={{ height: `${h}%`, minHeight: '2px' }}>
+                      <div className={`w-full h-full rounded-t-md ${isOver ? 'bg-brevo-danger' : 'bg-brevo-ink'}`} />
                     </div>
-                    <span className="text-[9px] text-[#999]">{day}</span>
+                    <span className="text-[9px] text-[#9AA89E]">{day}</span>
                   </div>
                 );
               })}
@@ -162,7 +164,7 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
         )}
 
         {lastFetched && (
-          <p className="text-[10px] text-[#ccc] mt-3 flex items-center gap-1">
+          <p className="text-[10px] text-[#9AA89E] mt-3 flex items-center gap-1">
             <Wifi className="w-3 h-3" /> Updated {lastFetched.toLocaleTimeString()}
           </p>
         )}

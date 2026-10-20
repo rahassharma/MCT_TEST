@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, Gift, AlertTriangle, Ban, BarChart3 } from 'lucide-react';
+import { Clock, TrendingUp, Gift, AlertTriangle, Ban, BarChart3 } from 'lucide-react';
 import type { PenaltyInfo, DailyData } from '../types';
 import { useTheme } from '../ThemeContext';
 
@@ -13,33 +13,36 @@ interface StatsPanelProps {
 }
 
 /* ═══════════════════════════════════════
-   CLASSIC STAT CARD
+   CLASSIC STAT CARD — Brevo-style: colored icon chip, soft
+   rounded-2xl card, uppercase micro-label.
    ═══════════════════════════════════════ */
-function ClassicStatCard({ label, value, unit, variant }: {
+function ClassicStatCard({ label, value, unit, variant, icon: Icon }: {
   label: string; value: number; unit: string;
   variant?: 'default' | 'accent' | 'danger' | 'success' | 'warning';
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
-  const styles: Record<string, string> = {
-    default: 'bg-white border-[#e5e5e5]',
-    accent: 'bg-[#f5f5f5] border-[#0f0f0f]',
-    danger: 'bg-[#fee2e2] border-[#ef4444]',
-    success: 'bg-[#f0fdf4] border-[#22c55e]',
-    warning: 'bg-orange-50 border-orange-300',
-  };
-  const labelColors: Record<string, string> = {
-    default: 'text-[#666]', accent: 'text-[#666]', danger: 'text-[#991b1b]',
-    success: 'text-[#166534]', warning: 'text-orange-700',
+  const chipStyles: Record<string, string> = {
+    default: 'bg-[#F0F2EE] text-brevo-ink',
+    accent: 'bg-[#E8F7E0] text-brevo-teal',
+    danger: 'bg-brevo-danger-bg text-brevo-danger',
+    success: 'bg-[#DFF8C8] text-[#4C8A1F]',
+    warning: 'bg-brevo-orange-bg text-brevo-orange',
   };
   const valueColors: Record<string, string> = {
-    default: 'text-[#0f0f0f]', accent: 'text-[#0f0f0f]', danger: 'text-[#ef4444]',
-    success: 'text-[#22c55e]', warning: 'text-orange-500',
+    default: 'text-brevo-ink', accent: 'text-brevo-ink', danger: 'text-brevo-danger',
+    success: 'text-[#4C8A1F]', warning: 'text-brevo-orange',
   };
   const v = variant || 'default';
   return (
-    <div className={`border rounded-xl p-5 ${styles[v]}`}>
-      <div className={`text-xs font-semibold uppercase tracking-wider mb-3 ${labelColors[v]}`}>{label}</div>
-      <div className={`text-3xl font-bold ${valueColors[v]}`}>{value}</div>
-      <div className="text-xs text-[#666] mt-1">{unit}</div>
+    <div className="bg-white border border-brevo-border rounded-2xl p-4">
+      {Icon && (
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center mb-2.5 ${chipStyles[v]}`}>
+          <Icon className="w-3.5 h-3.5" />
+        </div>
+      )}
+      <div className="text-[10px] font-bold uppercase tracking-wider text-[#8A9A8F] mb-0.5">{label}</div>
+      <div className={`text-2xl font-extrabold ${valueColors[v]}`}>{value}</div>
+      <div className="text-[11px] text-[#9AA89E] mt-0.5">{unit}</div>
     </div>
   );
 }
@@ -107,35 +110,35 @@ export default function StatsPanel({ penaltyInfo, dailyData, isBlocked, isFullBl
 
     if (!isGlass) {
       return (
-        <div className="bg-white border border-[#e5e5e5] rounded-xl p-5">
-          <div className="text-xs font-semibold uppercase tracking-wider text-[#666] mb-3">Penalty Breakdown</div>
+        <div className="bg-white border border-brevo-border rounded-2xl p-5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#8A9A8F] mb-3">Penalty breakdown</div>
           <div className="space-y-2">
             {rows.map((r, i) => (
               <div key={i} className="flex justify-between text-sm">
-                <span className="text-[#666]">{r.l}</span>
-                <span className={`font-semibold ${r.accent ? 'text-orange-500' : 'text-[#0f0f0f]'}`}>{r.r}</span>
+                <span className="text-[#4B5C53]">{r.l}</span>
+                <span className={`font-semibold ${r.accent ? 'text-brevo-orange' : 'text-brevo-ink'}`}>{r.r}</span>
               </div>
             ))}
-            <div className="border-t border-[#e5e5e5] pt-2 flex justify-between text-sm">
-              <span className="font-bold text-[#0f0f0f]">Total penalty</span>
-              <span className="font-bold text-[#ef4444]">{penaltyMinutes} min</span>
+            <div className="border-t border-brevo-border pt-2 flex justify-between text-sm">
+              <span className="font-bold text-brevo-ink">Total penalty</span>
+              <span className="font-bold text-brevo-danger">{penaltyMinutes} min</span>
             </div>
             {isFullBlock && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#666]">Next day</span>
-                <span className="text-xs font-bold text-[#ef4444] bg-[#fee2e2] px-2 py-0.5 rounded-full">FULLY BLOCKED</span>
+                <span className="text-[#4B5C53]">Next day</span>
+                <span className="text-xs font-bold text-brevo-danger bg-brevo-danger-bg px-2 py-0.5 rounded-full">FULLY BLOCKED</span>
               </div>
             )}
             {carryForward > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#666]">Carried forward</span>
-                <span className="font-bold text-purple-500">{carryForward} min →</span>
+                <span className="text-[#4B5C53]">Carried forward</span>
+                <span className="font-bold text-brevo-purple">{carryForward} min →</span>
               </div>
             )}
             {penaltyMinutes > 0 && !isFullBlock && (
               <div className="flex justify-between text-sm">
-                <span className="text-[#666]">Next day limit</span>
-                <span className="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">
+                <span className="text-[#4B5C53]">Next day limit</span>
+                <span className="text-xs font-bold text-brevo-orange bg-brevo-orange-bg px-2 py-0.5 rounded-full">
                   {effectiveLimit + blockedMinutes} − {penaltyMinutes} = {effectiveLimit + blockedMinutes - penaltyMinutes} MIN
                 </span>
               </div>
@@ -188,22 +191,22 @@ export default function StatsPanel({ penaltyInfo, dailyData, isBlocked, isFullBl
   };
 
   /* ═══════════════════════════════════
-     CLASSIC THEME
+     CLASSIC THEME — Brevo-inspired
      ═══════════════════════════════════ */
   if (!isGlass) {
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         {/* Block banner */}
         {(isBlocked || isFullBlock) && (
-          <div className={`border rounded-xl p-4 flex items-center gap-3 ${
-            isFullBlock ? 'bg-[#fee2e2] border-[#ef4444]' : 'bg-orange-50 border-orange-300'
+          <div className={`border rounded-2xl p-4 flex items-center gap-3 ${
+            isFullBlock ? 'bg-brevo-danger-bg border-brevo-danger/30' : 'bg-brevo-orange-bg border-brevo-orange/30'
           }`}>
-            <Ban className={`w-5 h-5 flex-shrink-0 ${isFullBlock ? 'text-[#ef4444]' : 'text-orange-500'}`} />
+            <Ban className={`w-5 h-5 flex-shrink-0 ${isFullBlock ? 'text-brevo-danger' : 'text-brevo-orange'}`} />
             <div>
-              <p className={`text-sm font-bold ${isFullBlock ? 'text-[#991b1b]' : 'text-orange-700'}`}>
+              <p className={`text-sm font-bold ${isFullBlock ? 'text-brevo-danger' : 'text-brevo-orange'}`}>
                 {isFullBlock ? 'This Day is Fully Blocked' : `${blockedMinutes} Min Blocked`}
               </p>
-              <p className="text-xs text-[#666] mt-0.5">
+              <p className="text-xs text-[#4B5C53] mt-0.5">
                   {isFullBlock ? 'Penalty from previous day' : `Limit: ${effectiveLimit + blockedMinutes} → ${effectiveLimit} min`}
               </p>
             </div>
@@ -211,19 +214,19 @@ export default function StatsPanel({ penaltyInfo, dailyData, isBlocked, isFullBl
         )}
 
         {/* Info box */}
-        <div className="bg-[#f0f9ff] border border-[#bfdbfe] rounded-lg p-4 text-sm text-[#1e40af]">
+        <div className="bg-brevo-field border border-brevo-border rounded-2xl p-4 text-sm text-brevo-ink">
           Total: <strong>{totalTime}</strong> / {effectiveLimit} min
           {blockedMinutes > 0 && !isFullBlock && (
-            <span className="ml-1 text-orange-600">(reduced from {effectiveLimit + blockedMinutes} by {blockedMinutes} min penalty)</span>
+            <span className="ml-1 text-brevo-orange">(reduced from {effectiveLimit + blockedMinutes} by {blockedMinutes} min penalty)</span>
           )}
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <ClassicStatCard label="Total Time" value={totalTime} unit="minutes" variant={isOver ? 'danger' : 'accent'} />
-          <ClassicStatCard label="Bonus Time" value={bonusTime} unit="minutes available" variant="success" />
-          <ClassicStatCard label="Excess Time" value={excessTime} unit="minutes over limit" variant={excessTime > 0 ? 'warning' : 'default'} />
-          <ClassicStatCard label="Penalty" value={penaltyMinutes} unit="minutes blocked tomorrow" variant={penaltyMinutes > 0 ? 'danger' : 'default'} />
+        <div className="grid grid-cols-2 gap-3">
+          <ClassicStatCard label="Total Time" value={totalTime} unit="minutes" variant={isOver ? 'danger' : 'accent'} icon={Clock} />
+          <ClassicStatCard label="Bonus Time" value={bonusTime} unit="minutes available" variant="success" icon={Gift} />
+          <ClassicStatCard label="Excess Time" value={excessTime} unit="minutes over limit" variant={excessTime > 0 ? 'warning' : 'default'} icon={AlertTriangle} />
+          <ClassicStatCard label="Penalty" value={penaltyMinutes} unit="minutes blocked tomorrow" variant={penaltyMinutes > 0 ? 'danger' : 'default'} icon={Ban} />
         </div>
 
         <PenaltyBreakdown />

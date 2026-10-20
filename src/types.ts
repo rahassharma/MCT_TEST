@@ -1,4 +1,9 @@
-export interface DailyData { spell1: number; spell2: number; spell3: number; }
+export interface DailyData {
+  spell1: number; spell2: number; spell3: number;
+  /** Minutes auto-reported by the phone-side Guardian app (verified supervised-profile usage,
+   *  plus any PIN bonus-time grants). Optional for backward compatibility with older records. */
+  deviceMinutes?: number;
+}
 
 export interface AppSettings {
   maxTime: number;

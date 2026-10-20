@@ -43,70 +43,69 @@ export default function WeeklyChart({ stats }: WeeklyChartProps) {
       value: stats.totalScreenTime,
       unit: 'min',
       icon: Clock,
-      color: 'blue',
       gradient: 'from-blue-500 to-cyan-500',
-      classicBg: 'bg-blue-50',
-      classicText: 'text-blue-700',
+      classicBg: 'bg-[#E9F6FF]',
+      classicText: 'text-[#1C7FBF]',
     },
     {
       label: 'On-Time Days',
       value: stats.onTimeDays,
       unit: `/ ${stats.trackedDays}`,
       icon: Award,
-      color: 'green',
       gradient: 'from-green-500 to-emerald-500',
-      classicBg: 'bg-green-50',
-      classicText: 'text-green-700',
+      classicBg: 'bg-[#E8F7E0]',
+      classicText: 'text-brevo-teal',
     },
     {
       label: 'Total Penalties',
       value: stats.totalPenalty,
       unit: 'min',
       icon: AlertTriangle,
-      color: 'red',
       gradient: 'from-red-500 to-rose-500',
-      classicBg: 'bg-red-50',
-      classicText: 'text-red-700',
+      classicBg: 'bg-brevo-danger-bg',
+      classicText: 'text-brevo-danger',
     },
     {
       label: 'Avg Daily',
       value: stats.avgScreenTime,
       unit: 'min',
       icon: TrendingUp,
-      color: 'purple',
       gradient: 'from-purple-500 to-violet-500',
-      classicBg: 'bg-purple-50',
-      classicText: 'text-purple-700',
+      classicBg: 'bg-brevo-purple-bg',
+      classicText: 'text-brevo-purple',
     },
   ];
 
-  /* ══════ CLASSIC ══════ */
+  /* ══════ CLASSIC — Brevo-inspired ══════ */
   if (!isGlass) {
     return (
-      <div className="bg-white border border-[#e5e5e5] rounded-xl p-7">
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-[#0f0f0f]">Weekly Overview</h3>
-          <p className="text-sm text-[#666] mt-0.5">Last 7 days performance</p>
+      <div className="bg-white border border-brevo-border rounded-2xl p-6">
+        <div className="mb-6 flex items-baseline justify-between">
+          <div>
+            <h3 className="text-base font-extrabold text-brevo-ink">Last 7 days</h3>
+            <p className="text-xs text-[#8A9A8F] mt-0.5">Total minutes per day</p>
+          </div>
+          <div className="text-xs font-bold text-brevo-teal">{stats.totalScreenTime} min this week</div>
         </div>
 
         {/* Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {summaryCards.map((card, i) => (
-            <div key={i} className={`${card.classicBg} border border-[#e5e5e5] rounded-lg p-3`}>
-              <div className="flex items-center gap-2 mb-2">
+            <div key={i} className={`${card.classicBg} rounded-2xl p-3.5`}>
+              <div className="flex items-center gap-1.5 mb-2">
                 <card.icon className={`w-3.5 h-3.5 ${card.classicText}`} />
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#666]">{card.label}</span>
+                <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#4B5C53]">{card.label}</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className={`text-xl font-bold ${card.classicText}`}>{card.value}</span>
-                <span className="text-[10px] text-[#666]">{card.unit}</span>
+                <span className={`text-xl font-extrabold ${card.classicText}`}>{card.value}</span>
+                <span className="text-[10px] text-[#4B5C53]">{card.unit}</span>
               </div>
             </div>
           ))}
         </div>
 
         {/* Bar Chart */}
-        <div className="border-t border-[#e5e5e5] pt-5">
+        <div className="border-t border-brevo-border pt-5">
           <div className="flex items-end justify-between gap-2" style={{ height: '180px' }}>
             {stats.days.map((day, i) => {
               const totalHeight = maxVal > 0 ? (day.totalTime / maxVal) * 100 : 0;
@@ -116,7 +115,7 @@ export default function WeeklyChart({ stats }: WeeklyChartProps) {
                 <div key={i} className="flex-1 flex flex-col items-center gap-2 h-full">
                   <div className="relative flex-1 w-full flex items-end justify-center">
                     {/* Limit line */}
-                    <div className="absolute w-full border-t border-dashed border-[#0f0f0f]/20"
+                    <div className="absolute w-full border-t border-dashed border-brevo-ink/15"
                       style={{ bottom: `${limitHeight}%` }} />
                     {/* Total bar */}
                     {day.hasData && (
@@ -124,23 +123,23 @@ export default function WeeklyChart({ stats }: WeeklyChartProps) {
                         initial={{ height: 0 }}
                         animate={{ height: `${totalHeight}%` }}
                         transition={{ duration: 0.6, delay: i * 0.05, ease: 'easeOut' }}
-                        className={`w-full max-w-[28px] rounded-t-md ${
-                          day.isOnTime ? 'bg-[#0f0f0f]' : 'bg-[#ef4444]'
+                        className={`w-full max-w-[28px] rounded-t-lg ${
+                          day.isOnTime ? 'bg-brevo-lime' : 'bg-brevo-danger'
                         }`}
                       />
                     )}
                     {/* Penalty indicator */}
                     {day.penaltyMinutes > 0 && (
-                      <div className="absolute -top-5 text-[9px] font-bold text-[#ef4444]">
+                      <div className="absolute -top-5 text-[9px] font-bold text-brevo-danger">
                         -{day.penaltyMinutes}
                       </div>
                     )}
                   </div>
                   <div className="text-center">
-                    <div className={`text-xs font-bold ${day.isOnTime ? 'text-[#0f0f0f]' : day.hasData ? 'text-[#ef4444]' : 'text-[#ccc]'}`}>
+                    <div className={`text-xs font-bold ${day.isOnTime ? 'text-brevo-ink' : day.hasData ? 'text-brevo-danger' : 'text-[#D7DDD5]'}`}>
                       {day.totalTime || '–'}
                     </div>
-                    <div className="text-[10px] text-[#999] font-medium">{day.dayName}</div>
+                    <div className="text-[10px] text-[#9AA89E] font-semibold">{day.dayName}</div>
                   </div>
                 </div>
               );
@@ -148,17 +147,17 @@ export default function WeeklyChart({ stats }: WeeklyChartProps) {
           </div>
 
           {/* Legend */}
-          <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#666]">
+          <div className="flex items-center justify-center gap-5 mt-5 text-xs text-[#4B5C53]">
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-[#0f0f0f] rounded-sm" />
+              <div className="w-3 h-3 bg-brevo-lime rounded-sm" />
               <span>On-time</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 bg-[#ef4444] rounded-sm" />
+              <div className="w-3 h-3 bg-brevo-danger rounded-sm" />
               <span>Over limit</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <div className="w-6 border-t border-dashed border-[#0f0f0f]/30" />
+              <div className="w-6 border-t border-dashed border-brevo-ink/25" />
               <span>Daily limit</span>
             </div>
           </div>

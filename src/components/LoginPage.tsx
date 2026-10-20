@@ -59,50 +59,81 @@ export default function LoginPage() {
     ? 'Cloud login enabled — your account works across devices'
     : 'Local login only until cloud is configured';
 
+  /* Brevo-inspired split layout: lime brand panel + clean white form panel. */
   if (!isGlass) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="fixed top-6 right-6 z-50"><ThemeToggle /></div>
-        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-md">
-          <div className="text-center mb-10">
-            <div className="w-16 h-16 bg-[#0f0f0f] rounded-2xl flex items-center justify-center mx-auto mb-5"><Monitor className="w-8 h-8 text-white" /></div>
-            <h1 className="text-3xl font-bold text-[#0f0f0f] tracking-tight">Screen Time</h1>
-            <p className="text-[#666] text-sm mt-2">Sign in to continue</p>
-            <p className="text-xs mt-3 text-[#999] flex items-center justify-center gap-1.5"><Cloud className="w-3 h-3" /> {helperText}</p>
+        <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
+          className="w-full max-w-4xl rounded-[28px] overflow-hidden shadow-[0_1px_2px_rgba(21,36,29,0.04)] flex flex-col md:flex-row border border-brevo-border">
+
+          {/* Brand panel */}
+          <div className="flex-1 bg-brevo-lime p-10 md:p-12 flex flex-col justify-between gap-8 min-h-[420px]">
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-xl font-extrabold tracking-tight text-brevo-teal">STLOG</span>
+              <span className="text-xl font-extrabold tracking-tight text-brevo-ink">Track</span>
+            </div>
+            <div className="max-w-xs">
+              <div className="text-[11px] font-extrabold tracking-[0.12em] text-brevo-teal mb-3 uppercase">Screen time, simplified</div>
+              <h2 className="text-[28px] leading-[1.2] font-extrabold tracking-tight text-brevo-ink mb-3">Fair limits. Clear tracking. Zero arguments.</h2>
+              <p className="text-sm text-[#33493D] leading-relaxed">{helperText}</p>
+            </div>
+            <div className="bg-white rounded-2xl px-4 py-3.5 flex items-center gap-3 shadow-[0_14px_34px_rgba(21,36,29,0.12)] max-w-[260px]">
+              <Cloud className="w-4 h-4 text-brevo-teal flex-shrink-0" />
+              <span className="text-xs font-semibold text-brevo-ink">{cloudConfigured ? 'Cloud sync active' : 'Local login only'}</span>
+            </div>
           </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">Username</label>
-              <div className="relative"><User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999]" /><input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus className="w-full pl-11 pr-4 py-3 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all placeholder:text-[#bbb]" /></div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-[#0f0f0f] mb-2">Password</label>
-              <div className="relative"><Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#999]" /><input type={showPass ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Enter password" className="w-full pl-11 pr-12 py-3 border border-[#e5e5e5] rounded-lg bg-[#fafafa] text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f] focus:bg-white focus:shadow-[0_0_0_3px_rgba(15,15,15,0.05)] transition-all placeholder:text-[#bbb]" /><button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#999] hover:text-[#666]">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button></div>
-            </div>
-            <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center gap-2 text-[#ef4444] text-sm font-medium bg-[#fee2e2] border border-[#ef4444]/20 rounded-lg px-4 py-3"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
-            <button type="submit" disabled={loading} className="w-full py-3 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" /> Sign In</>}</button>
-            <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-xs text-[#999] hover:text-[#666] transition-colors py-2 flex items-center justify-center gap-1.5 mt-2"><KeyRound className="w-3 h-3" /> Forgot Password?</button>
-          </form>
 
-          {showForgot && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-[#fafafa] border border-[#e5e5e5] rounded-xl p-6">
-              <button onClick={() => { setShowForgot(false); setForgotSuccess(false); setForgotError(''); }} className="flex items-center gap-2 text-sm text-[#666] hover:text-[#0f0f0f] mb-4"><ArrowLeft className="w-4 h-4" /> Back</button>
-              <div className="flex items-center gap-2 mb-4"><KeyRound className="w-5 h-5 text-[#0f0f0f]" /><h3 className="text-lg font-bold text-[#0f0f0f]">Forgot Password</h3></div>
-              {forgotSuccess ? (
-                <div className="flex items-center gap-2 text-green-700 bg-green-50 border border-green-200 rounded-lg p-4"><CheckCircle2 className="w-5 h-5" /><div><p className="font-semibold text-sm">Request submitted!</p><p className="text-xs mt-0.5">Ask admin to check Requests tab in Settings.</p></div></div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-[#666]">Enter your username and your desired new password. Admin will approve it.</p>
-                  <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder="Your username" className="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg bg-white text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f]" />
-                  <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-3.5 py-3 border border-[#e5e5e5] rounded-lg bg-white text-[#0f0f0f] font-medium focus:outline-none focus:border-[#0f0f0f]" />
-                  {forgotError && <p className="text-xs text-red-500 font-medium flex items-center gap-1.5"><AlertCircle className="w-3 h-3" />{forgotError}</p>}
-                  <button onClick={handleForgotSubmit} className="w-full py-2.5 rounded-lg bg-[#0f0f0f] text-white font-semibold text-sm hover:bg-[#333]">Submit Reset Request</button>
+          {/* Form panel */}
+          <div className="flex-1 bg-white p-8 md:p-12 flex flex-col justify-center">
+            <div className="w-full max-w-sm mx-auto">
+              <h1 className="text-2xl font-extrabold text-brevo-ink mb-1">Welcome back</h1>
+              <p className="text-xs text-[#8A9A8F] mb-7">Sign in to your dashboard</p>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-[#4B5C53] mb-2">Username</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA89E]" />
+                    <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus
+                      className="w-full pl-11 pr-4 py-3 border border-brevo-border rounded-2xl bg-brevo-field text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
+                  </div>
                 </div>
-              )}
-            </motion.div>
-          )}
+                <div>
+                  <label className="block text-xs font-bold text-[#4B5C53] mb-2">Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9AA89E]" />
+                    <input type={showPass ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Enter password"
+                      className="w-full pl-11 pr-12 py-3 border border-brevo-border rounded-2xl bg-brevo-field text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
+                    <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9AA89E] hover:text-[#4B5C53]">{showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>
+                  </div>
+                </div>
+                <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center gap-2 text-brevo-danger text-sm font-medium bg-brevo-danger-bg border border-brevo-danger/20 rounded-2xl px-4 py-3"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
+                <button type="submit" disabled={loading} className="w-full py-3.5 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><LogIn className="w-4 h-4" /> Sign in</>}</button>
+                <button type="button" onClick={() => setShowForgot(true)} className="w-full text-center text-xs text-[#8A9A8F] hover:text-brevo-teal transition-colors py-2 flex items-center justify-center gap-1.5 mt-1"><KeyRound className="w-3 h-3" /> Forgot password?</button>
+              </form>
 
-          <p className="text-center text-xs text-[#999] mt-8">{cloudConfigured ? 'Passwords and data sync through the cloud' : 'Configure cloud to sync login across devices'}</p>
+              {showForgot && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-brevo-field border border-brevo-border rounded-2xl p-6">
+                  <button onClick={() => { setShowForgot(false); setForgotSuccess(false); setForgotError(''); }} className="flex items-center gap-2 text-sm text-[#4B5C53] hover:text-brevo-ink mb-4"><ArrowLeft className="w-4 h-4" /> Back</button>
+                  <div className="flex items-center gap-2 mb-4"><KeyRound className="w-5 h-5 text-brevo-ink" /><h3 className="text-base font-extrabold text-brevo-ink">Forgot password</h3></div>
+                  {forgotSuccess ? (
+                    <div className="flex items-center gap-2 text-brevo-teal bg-[#E8F7E0] border border-brevo-teal/20 rounded-2xl p-4"><CheckCircle2 className="w-5 h-5" /><div><p className="font-semibold text-sm">Request submitted!</p><p className="text-xs mt-0.5">Ask admin to check Requests tab in Settings.</p></div></div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-sm text-[#4B5C53]">Enter your username and your desired new password. Admin will approve it.</p>
+                      <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder="Your username" className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+                      <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+                      {forgotError && <p className="text-xs text-brevo-danger font-medium flex items-center gap-1.5"><AlertCircle className="w-3 h-3" />{forgotError}</p>}
+                      <button onClick={handleForgotSubmit} className="w-full py-3 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830]">Submit reset request</button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              <p className="text-center text-[11px] text-[#9AA89E] mt-8">{cloudConfigured ? 'Passwords and data sync through the cloud' : 'Configure cloud to sync login across devices'}</p>
+            </div>
+          </div>
         </motion.div>
       </div>
     );

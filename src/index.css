@@ -19,6 +19,23 @@
   --color-apple-gray6: #1C1C1E;
   --color-apple-bg: #F2F2F7;
   --color-apple-card: rgba(255, 255, 255, 0.85);
+
+  /* Brevo-inspired redesign tokens: lime hero, teal accent, deep-ink text, soft cream/mint surfaces. */
+  --color-brevo-lime: #C7F7A0;
+  --color-brevo-lime-soft: #E7FAD3;
+  --color-brevo-teal: #0E7F68;
+  --color-brevo-ink: #15241D;
+  --color-brevo-ink-soft: #33493D;
+  --color-brevo-muted: #8A9A8F;
+  --color-brevo-bg: #FAFCF8;
+  --color-brevo-border: #ECF1E9;
+  --color-brevo-field: #F6FAF2;
+  --color-brevo-danger: #C0382F;
+  --color-brevo-danger-bg: #FBE2E2;
+  --color-brevo-orange: #B5641F;
+  --color-brevo-orange-bg: #FFEFDC;
+  --color-brevo-purple: #6B4FC4;
+  --color-brevo-purple-bg: #F2EEFB;
 }
 
 * {
