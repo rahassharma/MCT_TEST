@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Monitor, Sparkles, LogOut, Shield, Settings2, Clock, Gift, Ban, Award, CalendarDays, PenSquare } from 'lucide-react';
+import { Monitor, Sparkles, LogOut, Shield, Settings2, Clock, Gift, AlertTriangle, CalendarDays, PenSquare } from 'lucide-react';
 import Calendar from './components/Calendar';
 import SpellInput from './components/SpellInput';
 import StatsPanel from './components/StatsPanel';
@@ -111,8 +111,8 @@ function Dashboard() {
               <h1 className="text-[28px] sm:text-[34px] leading-[1.15] font-extrabold tracking-tight text-brevo-ink mb-3">
                 Hello, {user?.username} — here's today's progress
               </h1>
-              <p className="text-[15px] text-[#33493D] max-w-md mb-5">
-                Track daily usage, manage penalties, and keep screen time fair.
+              <p className="text-[15px] text-[#33493D] max-w-[440px] mb-5">
+                Track daily usage, manage penalties, and keep screen time fair — all synced live with the Guardian companion app.
               </p>
               <div className="flex flex-wrap items-center gap-3 mb-5">
                 <button
@@ -136,44 +136,48 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Floating mini-stat preview card */}
-            <div className="bg-white rounded-[22px] p-5 shadow-[0_20px_40px_rgba(21,36,29,0.14)] grid grid-cols-2 gap-3 min-w-[240px]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#E8F7E0] text-brevo-teal flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">{todayPenalty.totalTime}min</div>
-                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Time used</div>
-                </div>
+            {/* Floating mini-stat preview card — exact copy of the mockup's structure:
+                3-dot header strip, then a 2x2 grid of vertical tiles (icon, label, value),
+                using its literal tile colors. Values are the same real todayPenalty /
+                behaviorScore data used everywhere else, never the mockup's placeholders. */}
+            <div className="flex-none w-full sm:w-[420px] max-w-[420px] min-w-[300px] bg-white rounded-[22px] shadow-[0_20px_48px_rgba(21,36,29,0.16)] overflow-hidden">
+              <div className="flex gap-1.5 px-4 py-3.5 border-b border-[#EEF2EB]">
+                <span className="w-[9px] h-[9px] rounded-full bg-[#EAEAEA]" />
+                <span className="w-[9px] h-[9px] rounded-full bg-[#EAEAEA]" />
+                <span className="w-[9px] h-[9px] rounded-full bg-[#EAEAEA]" />
               </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#DFF8C8] text-[#4C8A1F] flex items-center justify-center flex-shrink-0">
-                  <Gift className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">+{todayPenalty.bonusTime}min</div>
-                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Bonus</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#FBE2E2] text-[#C0382F] flex items-center justify-center flex-shrink-0">
-                  <Ban className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">{todayPenalty.penaltyMinutes}min</div>
-                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Penalty</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#F0F2EE] text-brevo-ink flex items-center justify-center flex-shrink-0">
-                  <Award className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[13px] font-extrabold text-brevo-ink leading-tight">
-                    {behaviorScore.grade === 'N/A' ? '–' : `${behaviorScore.score}/${behaviorScore.grade}`}
+              <div className="grid grid-cols-2 gap-3 p-5">
+                <div className="bg-[#EAFBE3] rounded-2xl p-3.5">
+                  <Clock className="w-4 h-4 text-[#0E7F68]" />
+                  <div className="text-[11px] font-bold text-[#2C4A3B] mt-2 uppercase tracking-[0.04em]">Time used</div>
+                  <div className="text-[22px] font-extrabold text-brevo-ink">
+                    {todayPenalty.totalTime}<span className="text-xs font-semibold text-[#6E8278]"> min</span>
                   </div>
-                  <div className="text-[10px] text-[#8A9A8F] leading-tight">Score</div>
+                </div>
+                <div className="bg-[#E9F6FF] rounded-2xl p-3.5">
+                  <Gift className="w-4 h-4 text-[#1C7FBF]" />
+                  <div className="text-[11px] font-bold text-[#2C4A3B] mt-2 uppercase tracking-[0.04em]">Bonus</div>
+                  <div className="text-[22px] font-extrabold text-brevo-ink">
+                    +{todayPenalty.bonusTime}<span className="text-xs font-semibold text-[#6E8278]"> min</span>
+                  </div>
+                </div>
+                <div className="bg-[#FBEDE3] rounded-2xl p-3.5">
+                  <AlertTriangle className="w-4 h-4 text-[#C2622A]" />
+                  <div className="text-[11px] font-bold text-[#2C4A3B] mt-2 uppercase tracking-[0.04em]">Penalty</div>
+                  <div className="text-[22px] font-extrabold text-brevo-ink">
+                    {todayPenalty.penaltyMinutes}<span className="text-xs font-semibold text-[#6E8278]"> min</span>
+                  </div>
+                </div>
+                <div className="bg-[#F2EEFB] rounded-2xl p-3.5">
+                  <Shield className="w-4 h-4 text-[#6B4FC4]" />
+                  <div className="text-[11px] font-bold text-[#2C4A3B] mt-2 uppercase tracking-[0.04em]">Score</div>
+                  <div className="text-[22px] font-extrabold text-brevo-ink">
+                    {behaviorScore.grade === 'N/A' ? (
+                      <span className="text-base">No data yet</span>
+                    ) : (
+                      <>{behaviorScore.score}<span className="text-xs font-semibold text-[#6E8278]"> /{behaviorScore.grade}</span></>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
