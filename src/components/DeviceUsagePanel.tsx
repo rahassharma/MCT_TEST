@@ -62,7 +62,9 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
     return () => clearInterval(interval);
   }, [userKey, mobileSync]);
 
-  const todayKey = new Date().toISOString().split('T')[0];
+  // Local calendar date (the phone logs by its local date), not UTC.
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const todayData = data.find(d => d.date === todayKey);
   const hasData = data.length > 0;
   const hasToday = !!todayData;
