@@ -31,6 +31,23 @@ export async function clearFaceData(personId: string): Promise<string | null> {
   return error ? error.message : null;
 }
 
+/**
+ * Removes a person and everything stored for them: usage history, daily state, face data and the
+ * person itself. Returns an error message, or null when everything was deleted.
+ */
+export async function removePersonCompletely(p: Person): Promise<string | null> {
+  const c = getSupabaseClient(); if (!c) return 'Cloud is not configured';
+  const keys = Array.from(new Set([p.id, p.legacyUserKey].filter(Boolean) as string[]));
+  for (const table of ['device_usage', 'user_data']) {
+    const { error } = await c.from(table).delete().in('user_key', keys);
+    if (error) return `${table}: ${error.message}`;
+  }
+  const prof = await c.from('supervised_profiles').delete().eq('user_key', p.id);
+  if (prof.error) return `supervised_profiles: ${prof.error.message}`;
+  const { error } = await c.from('people').delete().eq('id', p.id);
+  return error ? `people: ${error.message}` : null;
+}
+
 /** Loads the account's people, or returns the real database error so it can be shown. */
 export async function loadPeopleOrError(): Promise<{ ok: true; people: Person[] } | { ok: false; error: string }> {
   const c = getSupabaseClient(); if (!c) return { ok: false, error: 'Cloud is not configured' };

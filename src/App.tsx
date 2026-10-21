@@ -22,7 +22,7 @@ import { CLOUD_ENABLED } from './db/supabase';
 function Dashboard() {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, accountName } = useAuth();
 
   const userKey = user?.key || null;
 
@@ -51,7 +51,9 @@ function Dashboard() {
   const todayPenalty = getPenaltyInfo(todayKey);
   const isFutureSelected = state.selectedDate > todayKey;
 
-  const userInitial = user?.username?.charAt(0).toUpperCase() || '?';
+  // The header shows the signed-in account, which does not change when switching members.
+  const headerName = accountName || user?.username || '';
+  const userInitial = headerName.charAt(0).toUpperCase() || '?';
 
   const syncIndicator = (
     <SyncStatusIndicator
@@ -97,7 +99,7 @@ function Dashboard() {
                   {userInitial}
                 </div>
                 <div className="hidden sm:block">
-                  <div className="text-sm font-semibold leading-tight">{user?.username}</div>
+                  <div className="text-sm font-semibold leading-tight">{headerName}</div>
                   <div className="text-[10px] text-[#8A9A8F] leading-tight">{isAdmin ? 'Admin' : 'User'}</div>
                 </div>
                 <button onClick={logout} title="Sign out"
@@ -315,7 +317,7 @@ function Dashboard() {
                   {userInitial}
                 </div>
                 <div className="hidden sm:block pr-1">
-                  <div className="text-xs font-semibold text-gray-800 leading-tight">{user?.username}</div>
+                  <div className="text-xs font-semibold text-gray-800 leading-tight">{headerName}</div>
                   <div className="flex items-center gap-1">
                     {isAdmin && <Shield className="w-2.5 h-2.5 text-gray-400" />}
                     <span className="text-[9px] text-gray-400 font-medium leading-tight">{isAdmin ? 'Admin' : 'User'}</span>

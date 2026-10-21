@@ -9,7 +9,7 @@ import {
 } from './db/sync';
 import type { UserRequest, RequestStatus, AdminNotification } from './types';
 import { signInWithEmail, signUpWithEmail, sendPasswordReset, setNewPassword, signOutCloud, getCurrentSession, getCurrentAccount, resendConfirmation } from './db/auth';
-import { loadPeopleOrError, createPersonOrError, personDataKey, claimLegacyData, type Person } from './db/people';
+import { loadPeopleOrError, createPersonOrError, personDataKey, claimLegacyData, removePersonCompletely, type Person } from './db/people';
 import { getSupabaseClient } from './db/client';
 
 export type UserRole = 'admin' | 'user';
@@ -47,6 +47,9 @@ interface AuthContextValue {
   // Supabase accounts (cloud)
   people: Person[];
   selectPerson: (personId: string) => void;
+  /** The signed-in account's own name. Stays the same when you switch between members. */
+  accountName: string;
+  removePerson: (personId: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, display: string) => Promise<{ success: boolean; needsConfirm?: boolean; error?: string }>;
   sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   needsNewPassword: boolean;
@@ -89,7 +92,7 @@ const AuthContext = createContext<AuthContextValue>({
   getPendingRequests: () => [], getAllRequests: () => [], getUserRequests: () => [],
   sendNotification: async () => {}, getNotificationsForUser: () => [], getUnreadCount: () => 0,
   markAsRead: async () => {}, getAllNotifications: () => [], dataVersion: 0,
-  people: [], selectPerson: () => {}, signUp: async () => ({ success: false }),
+  people: [], selectPerson: () => {}, accountName: '', removePerson: async () => ({ success: false }), signUp: async () => ({ success: false }),
   sendPasswordReset: async () => ({ success: false }), needsNewPassword: false,
   completePasswordReset: async () => ({ success: false }), justVerified: false,
   continueAfterVerification: async () => ({ success: false }), resendConfirmation: async () => ({ success: false }),
@@ -104,6 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [deletedUsers, setDeletedUsers] = useState<Record<string, string>>({});
   const [people, setPeople] = useState<Person[]>([]);
+  const [accountName, setAccountName] = useState('');
   const [needsNewPassword, setNeedsNewPassword] = useState(false);
   const [justVerified, setJustVerified] = useState(false);
   const bump = () => setDataVersion(v => v + 1);
@@ -140,6 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const applyPeople = useCallback(async (preferredId: string | null): Promise<string | null> => {
     try {
       await claimLegacyData();
+      const account = await getCurrentAccount();
+      if (account?.display) setAccountName(account.display);
       const loaded = await loadPeopleOrError();
       if (!loaded.ok) return loaded.error;
       let list = loaded.people;
@@ -165,6 +171,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('guardian_selected_person', p.id);
     setUser({ username: p.display, role: 'admin', key: personDataKey(p) });
   }, [people]);
+
+  const removePerson = useCallback(async (personId: string): Promise<{ success: boolean; error?: string }> => {
+    const p = people.find(x => x.id === personId);
+    if (!p) return { success: false, error: 'Person not found' };
+    if (people.length < 2) return { success: false, error: 'An account needs at least one person, so the last one cannot be removed.' };
+    const err = await removePersonCompletely(p);
+    if (err) return { success: false, error: err };
+    const currentId = people.find(x => personDataKey(x) === user?.key)?.id ?? null;
+    const err2 = await applyPeople(currentId === personId ? null : currentId);
+    return err2 ? { success: false, error: err2 } : { success: true };
+  }, [people, user, applyPeople]);
 
   // Restore a saved Supabase session on load. A password-reset link also creates a session,
   // so on that path we stop at the "choose a new password" step instead of logging in.
@@ -252,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: true };
   }, [cloud, applyPeople]);
 
-  const logout = useCallback(() => { setUser(null); saveUser(null); setIsDeleted(false); setPeople([]); if (cloud) void signOutCloud(); }, [cloud]);
+  const logout = useCallback(() => { setUser(null); saveUser(null); setIsDeleted(false); setPeople([]); setAccountName(''); if (cloud) void signOutCloud(); }, [cloud]);
   const verifyPassword = useCallback((pw: string): boolean => { if (!user) return false; const e = loadPasswords()[user.key]; return !!e && e.password === pw; }, [user]);
 
   const changePassword = useCallback(async (userKey: string, newPw: string): Promise<boolean> => {
@@ -400,7 +417,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       getPendingRequests, getAllRequests, getUserRequests,
       sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
       dataVersion,
-      people, selectPerson, signUp, sendPasswordReset: sendResetEmail, needsNewPassword, completePasswordReset,
+      people, selectPerson, accountName, removePerson, signUp, sendPasswordReset: sendResetEmail, needsNewPassword, completePasswordReset,
       justVerified, continueAfterVerification, resendConfirmation: resendSignup,
     }}>
       {children}

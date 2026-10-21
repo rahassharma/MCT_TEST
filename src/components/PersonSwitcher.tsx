@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, Check, Users, ScanFace } from 'lucide-react';
+import { ChevronDown, Check, Users, ScanFace, Trash2 } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { personDataKey, clearFaceData } from '../db/people';
 
 /** Dropdown next to the settings button for switching which supervised member the dashboard shows. */
 export default function PersonSwitcher({ glass = false }: { glass?: boolean }) {
-  const { people, user, selectPerson } = useAuth();
+  const { people, user, selectPerson, removePerson } = useAuth();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,6 +57,20 @@ export default function PersonSwitcher({ glass = false }: { glass?: boolean }) {
                 >
                   <ScanFace className="w-4 h-4" />
                 </button>
+                {people.length > 1 && (
+                  <button
+                    title={`Remove ${p.display} completely`}
+                    onClick={async () => {
+                      if (!window.confirm(`Remove ${p.display} completely?\n\nThis permanently deletes their usage history, daily records and face data. This cannot be undone.`)) return;
+                      const r = await removePerson(p.id);
+                      if (!r.success) window.alert(`Could not remove ${p.display}: ${r.error}`);
+                      else setOpen(false);
+                    }}
+                    className="p-2 mr-1 rounded-lg text-[#9AA89E] hover:text-brevo-danger hover:bg-white shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             );
           })}
