@@ -11,7 +11,7 @@ function loadPw() { try { const s = localStorage.getItem('screentime_passwords')
 const loadPasswords = loadPw;
 
 export default function LoginPage() {
-  const { login, submitRequest } = useAuth();
+  const { login, submitRequest, signUp, sendPasswordReset, needsNewPassword, completePasswordReset } = useAuth();
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const cloudConfigured = CLOUD_ENABLED;
@@ -33,8 +33,24 @@ export default function LoginPage() {
   const [forgotError, setForgotError] = useState('');
   const [forgotSuccess, setForgotSuccess] = useState(false);
 
+  // Create account / new password (cloud)
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [displayName, setDisplayName] = useState('');
+  const [info, setInfo] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [newPwConfirm, setNewPwConfirm] = useState('');
+  const [newPwError, setNewPwError] = useState('');
+
   const handleForgotSubmit = async () => {
     setForgotError('');
+    if (cloudConfigured) {
+      const email = forgotUser.trim();
+      if (!email.includes('@')) { setForgotError('Enter the email on your account'); return; }
+      const r = await sendPasswordReset(email);
+      if (r.success) { setForgotSuccess(true); }
+      else { setForgotError(r.error || 'Could not send the reset email'); }
+      return;
+    }
     const key = forgotUser.toLowerCase().trim();
     if (!key) { setForgotError('Enter your username'); return; }
     if (!forgotPw.trim() || forgotPw.length < 6) { setForgotError('Enter a password (min 6 chars)'); return; }
@@ -51,6 +67,15 @@ export default function LoginPage() {
     }
     setLoading(true);
     setError('');
+    setInfo('');
+    if (cloudConfigured && mode === 'signup') {
+      const r = await signUp(username.trim(), password, displayName.trim());
+      setLoading(false);
+      if (!r.success) { setError(r.error || 'Could not create the account'); return; }
+      if (r.needsConfirm) setInfo('Account created. Check your email and tap the confirmation link, then sign in.');
+      else setInfo('Account created.');
+      return;
+    }
     const result = await login(username, password, password);
     if (!result.success) {
       setError(result.error || 'Login failed');
@@ -58,9 +83,41 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  const handleNewPassword = async () => {
+    setNewPwError('');
+    if (newPw.length < 6) { setNewPwError('Use at least 6 characters'); return; }
+    if (newPw !== newPwConfirm) { setNewPwError('The two passwords do not match'); return; }
+    setLoading(true);
+    const r = await completePasswordReset(newPw);
+    setLoading(false);
+    if (!r.success) setNewPwError(r.error || 'Could not save the new password');
+  };
+
   const helperText = cloudConfigured
     ? 'Cloud login enabled — your account works across devices'
     : 'Local login only until cloud is configured';
+
+  if (cloudConfigured && needsNewPassword) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="fixed top-6 right-6 z-50"><ThemeToggle /></div>
+        <div className="w-full max-w-[420px] rounded-[24px] border border-[#E7ECE7] p-10 bg-white">
+          <h1 className="text-[24px] font-extrabold text-brevo-ink mb-1.5">Choose a new password</h1>
+          <p className="text-[13.5px] text-[#7E8D83] mb-7">Set a new password for your Guardian account.</p>
+          <div className="space-y-[16px]">
+            <input type="password" value={newPw} onChange={e => { setNewPw(e.target.value); setNewPwError(''); }} placeholder="New password (min 6 characters)"
+              className="w-full px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+            <input type="password" value={newPwConfirm} onChange={e => { setNewPwConfirm(e.target.value); setNewPwError(''); }} placeholder="Repeat new password"
+              className="w-full px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+            {newPwError && <p className="text-sm text-brevo-danger font-medium">{newPwError}</p>}
+            <button type="button" onClick={handleNewPassword} disabled={loading} className="w-full py-[14px] rounded-full bg-brevo-ink text-white font-bold text-[14.5px] hover:bg-[#223830] disabled:opacity-60">
+              {loading ? 'Saving...' : 'Save new password'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* Exact port of the WebLogin design reference: 1200x860 split card, 46/54 panels,
      56px/64px panel padding, plain (icon-less) inputs, and the Grade stat card in place
@@ -101,8 +158,8 @@ export default function LoginPage() {
 
               <form onSubmit={handleSubmit} className="space-y-[18px]">
                 <div>
-                  <label className="block text-xs font-bold text-[#4B5C53] mb-[7px]">Username</label>
-                  <input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus
+                  <label className="block text-xs font-bold text-[#4B5C53] mb-[7px]">{cloudConfigured ? 'Email' : 'Username'}</label>
+                  <input type={cloudConfigured ? "email" : "text"} value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder={cloudConfigured ? "you@example.com" : "Enter username"} autoFocus
                     className="w-full px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal focus:bg-white focus:shadow-[0_0_0_3px_rgba(14,127,104,0.08)] transition-all placeholder:text-[#B7C2B9]" />
                 </div>
                 <div>
@@ -114,22 +171,34 @@ export default function LoginPage() {
                   </div>
                 </div>
                 <AnimatePresence>{error && (<motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex items-center gap-2 text-brevo-danger text-sm font-medium bg-brevo-danger-bg border border-brevo-danger/20 rounded-2xl px-4 py-3"><AlertCircle className="w-4 h-4 flex-shrink-0" />{error}</motion.div>)}</AnimatePresence>
-                <button type="submit" disabled={loading} className="w-full py-[14px] rounded-full bg-brevo-ink text-white font-bold text-[14.5px] hover:bg-[#223830] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Sign in'}</button>
+                <button type="submit" disabled={loading} className="w-full py-[14px] rounded-full bg-brevo-ink text-white font-bold text-[14.5px] hover:bg-[#223830] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2">{loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : mode === 'signup' ? 'Create account' : 'Sign in'}</button>
               </form>
 
-              <p className="text-center text-[12.5px] text-[#9AA89E] mt-4">Forgot access? <button type="button" onClick={() => setShowForgot(true)} className="text-brevo-teal font-bold hover:underline">Contact your admin</button></p>
+              {info && <p className="text-sm text-brevo-teal font-medium mt-4">{info}</p>}
+              {cloudConfigured && mode === 'signup' && (
+                <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your name (shown on your account)"
+                  className="w-full mt-4 px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+              )}
+              {cloudConfigured ? (
+                <p className="text-center text-[12.5px] text-[#9AA89E] mt-4">
+                  <button type="button" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); setInfo(''); }} className="text-brevo-teal font-bold hover:underline">{mode === 'signup' ? 'Already have an account? Sign in' : 'New here? Create an account'}</button>
+                  {mode === 'signin' && <> · <button type="button" onClick={() => setShowForgot(true)} className="text-brevo-teal font-bold hover:underline">Forgot password?</button></>}
+                </p>
+              ) : (
+                <p className="text-center text-[12.5px] text-[#9AA89E] mt-4">Forgot access? <button type="button" onClick={() => setShowForgot(true)} className="text-brevo-teal font-bold hover:underline">Contact your admin</button></p>
+              )}
 
               {showForgot && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-brevo-field border border-brevo-border rounded-2xl p-6">
                   <button onClick={() => { setShowForgot(false); setForgotSuccess(false); setForgotError(''); }} className="flex items-center gap-2 text-sm text-[#4B5C53] hover:text-brevo-ink mb-4"><ArrowLeft className="w-4 h-4" /> Back</button>
                   <div className="flex items-center gap-2 mb-4"><KeyRound className="w-5 h-5 text-brevo-ink" /><h3 className="text-base font-extrabold text-brevo-ink">Forgot password</h3></div>
                   {forgotSuccess ? (
-                    <div className="flex items-center gap-2 text-brevo-teal bg-[#E8F7E0] border border-brevo-teal/20 rounded-2xl p-4"><CheckCircle2 className="w-5 h-5" /><div><p className="font-semibold text-sm">Request submitted!</p><p className="text-xs mt-0.5">Ask admin to check Requests tab in Settings.</p></div></div>
+                    <div className="flex items-center gap-2 text-brevo-teal bg-[#E8F7E0] border border-brevo-teal/20 rounded-2xl p-4"><CheckCircle2 className="w-5 h-5" /><div><p className="font-semibold text-sm">Request submitted!</p><p className="text-xs mt-0.5">{cloudConfigured ? 'Check your inbox for the reset link.' : 'Ask admin to check Requests tab in Settings.'}</p></div></div>
                   ) : (
                     <div className="space-y-3">
-                      <p className="text-sm text-[#4B5C53]">Enter your username and your desired new password. Admin will approve it.</p>
-                      <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder="Your username" className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
-                      <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+                      <p className="text-sm text-[#4B5C53]">{cloudConfigured ? 'Enter your account email and we will send you a reset link.' : 'Enter your username and your desired new password. Admin will approve it.'}</p>
+                      <input type="text" value={forgotUser} onChange={e => { setForgotUser(e.target.value); setForgotError(''); }} placeholder={cloudConfigured ? "Your account email" : "Your username"} className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />
+                      {!cloudConfigured && <input type="password" value={forgotPw} onChange={e => { setForgotPw(e.target.value); setForgotError(''); }} placeholder="Desired new password (min 6 chars)" className="w-full px-3.5 py-3 border border-brevo-border rounded-2xl bg-white text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />}
                       {forgotError && <p className="text-xs text-brevo-danger font-medium flex items-center gap-1.5"><AlertCircle className="w-3 h-3" />{forgotError}</p>}
                       <button onClick={handleForgotSubmit} className="w-full py-3 rounded-full bg-brevo-ink text-white font-bold text-sm hover:bg-[#223830]">Submit reset request</button>
                     </div>
@@ -158,8 +227,8 @@ export default function LoginPage() {
           </div>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Username</label>
-              <div className="relative"><User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder="Enter username" autoFocus className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 focus:bg-white transition-all placeholder:text-gray-300" /></div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{cloudConfigured ? 'Email' : 'Username'}</label>
+              <div className="relative"><User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type={cloudConfigured ? "email" : "text"} value={username} onChange={e => { setUsername(e.target.value); setError(''); }} placeholder={cloudConfigured ? "you@example.com" : "Enter username"} autoFocus className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200/80 text-gray-900 font-medium focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 focus:bg-white transition-all placeholder:text-gray-300" /></div>
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Password</label>

@@ -1,4 +1,5 @@
 import { getSupabaseClient } from './client';
+import { getOwnerId } from './auth';
 import type { AppState, UserRequest, AdminNotification } from '../types';
 import type { UserRole } from '../AuthContext';
 
@@ -17,7 +18,11 @@ export async function fetchUserData(userKey: string): Promise<AppState | null> {
 
 export async function saveUserData(userKey: string, state: AppState): Promise<boolean> {
   const c = getSupabaseClient(); if (!c) return false;
-  try { const { error } = await c.from('user_data').upsert({ user_key: userKey, state, updated_at: new Date().toISOString() }, { onConflict: 'user_key' }); return !error; } catch { return false; }
+  try {
+    const row: Record<string, unknown> = { user_key: userKey, state, updated_at: new Date().toISOString() };
+    const owner = await getOwnerId(); if (owner) row.owner_id = owner;
+    const { error } = await c.from('user_data').upsert(row, { onConflict: 'user_key' }); return !error;
+  } catch { return false; }
 }
 
 // ═══════════════════════════════════
