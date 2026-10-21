@@ -14,17 +14,29 @@ export interface Person { id: string; display: string; legacyUserKey: string | n
  */
 export function personDataKey(p: Person): string { return p.legacyUserKey || p.id; }
 
-export async function fetchPeople(): Promise<Person[]> {
-  const c = getSupabaseClient(); if (!c) return [];
-  const { data, error } = await c.from('people').select('id, display, legacy_user_key').order('created_at', { ascending: true });
-  if (error || !data) return [];
-  return data.map((r: any) => ({ id: r.id, display: r.display, legacyUserKey: r.legacy_user_key ?? null }));
+/**
+ * Links any existing family data to this account. Runs on every sign-in and does nothing for
+ * accounts other than the owner (see guardian_auto_claim.sql). Errors are ignored here so that a
+ * failed claim never blocks sign-in; the people list below will show any real problem.
+ */
+export async function claimLegacyData(): Promise<void> {
+  const c = getSupabaseClient(); if (!c) return;
+  try { await c.rpc('claim_legacy_people'); } catch { /* ignored on purpose, see above */ }
 }
 
-export async function createPerson(display: string): Promise<Person | null> {
-  const c = getSupabaseClient(); if (!c) return null;
-  const owner = await getOwnerId(); if (!owner) return null;
+/** Loads the account's people, or returns the real database error so it can be shown. */
+export async function loadPeopleOrError(): Promise<{ ok: true; people: Person[] } | { ok: false; error: string }> {
+  const c = getSupabaseClient(); if (!c) return { ok: false, error: 'Cloud is not configured' };
+  const { data, error } = await c.from('people').select('id, display, legacy_user_key').order('created_at', { ascending: true });
+  if (error) return { ok: false, error: `Could not read your people (${error.message}). Has the people migration been run?` };
+  return { ok: true, people: (data || []).map((r: any) => ({ id: r.id, display: r.display, legacyUserKey: r.legacy_user_key ?? null })) };
+}
+
+/** Creates the first person for a new account, or returns the real database error. */
+export async function createPersonOrError(display: string): Promise<{ ok: true; person: Person } | { ok: false; error: string }> {
+  const c = getSupabaseClient(); if (!c) return { ok: false, error: 'Cloud is not configured' };
+  const owner = await getOwnerId(); if (!owner) return { ok: false, error: 'No signed-in account found' };
   const { data, error } = await c.from('people').insert({ owner_id: owner, display }).select('id, display, legacy_user_key').single();
-  if (error || !data) return null;
-  return { id: data.id, display: data.display, legacyUserKey: data.legacy_user_key ?? null };
+  if (error || !data) return { ok: false, error: `Could not create your first person (${error?.message ?? 'no data returned'})` };
+  return { ok: true, person: { id: data.id, display: data.display, legacyUserKey: data.legacy_user_key ?? null } };
 }

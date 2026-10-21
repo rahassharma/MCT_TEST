@@ -9,7 +9,7 @@ import {
 } from './db/sync';
 import type { UserRequest, RequestStatus, AdminNotification } from './types';
 import { signInWithEmail, signUpWithEmail, sendPasswordReset, setNewPassword, signOutCloud, getCurrentSession, getCurrentAccount, resendConfirmation } from './db/auth';
-import { fetchPeople, createPerson, personDataKey, type Person } from './db/people';
+import { loadPeopleOrError, createPersonOrError, personDataKey, claimLegacyData, type Person } from './db/people';
 import { getSupabaseClient } from './db/client';
 
 export type UserRole = 'admin' | 'user';
@@ -136,22 +136,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, deletedUsers]);
 
   // ── Cloud accounts (Supabase Auth) ──
-  const applyPeople = useCallback(async (preferredId: string | null): Promise<boolean> => {
+  // Returns null on success, or the real reason it failed (shown to the user).
+  const applyPeople = useCallback(async (preferredId: string | null): Promise<string | null> => {
     try {
-      let list = await fetchPeople();
+      await claimLegacyData();
+      const loaded = await loadPeopleOrError();
+      if (!loaded.ok) return loaded.error;
+      let list = loaded.people;
       if (list.length === 0) {
         const acct = await getCurrentAccount();
-        const created = await createPerson(acct?.display || 'Me');
-        list = created ? [created] : [];
+        const created = await createPersonOrError(acct?.display || 'Me');
+        if (!created.ok) return created.error;
+        list = [created.person];
       }
       setPeople(list);
       const chosen = list.find(p => p.id === preferredId) ?? list[0];
-      if (!chosen) return false;
+      if (!chosen) return 'No person found for this account.';
       localStorage.setItem('guardian_selected_person', chosen.id);
       setUser({ username: chosen.display, role: 'admin', key: personDataKey(chosen) });
-      return true;
-    } catch {
-      return false;
+      return null;
+    } catch (e) {
+      return `Could not load your account data (${String(e)}).`;
     }
   }, []);
 
@@ -176,8 +181,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await getCurrentSession();
       if (cancelled) return;
       if (!session) { setUser(null); setPeople([]); return; }
-      if (LAUNCH_HASH.includes('type=signup')) { setJustVerified(true); setUser(null); return; }
-      if (LAUNCH_HASH.includes('type=recovery')) { setNeedsNewPassword(true); setUser(null); return; }
+      const isRecovery = LAUNCH_HASH.includes('type=recovery');
+      if (!isRecovery && (LAUNCH_HASH.includes('type=signup') || LAUNCH_HASH.includes('access_token'))) { setJustVerified(true); setUser(null); return; }
+      if (isRecovery) { setNeedsNewPassword(true); setUser(null); return; }
       await applyPeople(localStorage.getItem('guardian_selected_person'));
     })();
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
@@ -187,8 +193,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const r = await signUpWithEmail(email, password, display);
     if (!r.ok) return { success: false, error: r.error };
     if (!r.needsConfirm) {
-      const ok = await applyPeople(null);
-      if (!ok) return { success: false, error: 'Account created, but your data could not load. Check the database setup.' };
+      const err = await applyPeople(null);
+      if (err) return { success: false, error: err };
     }
     return { success: true, needsConfirm: r.needsConfirm };
   }, [applyPeople]);
@@ -201,8 +207,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const continueAfterVerification = useCallback(async () => {
     window.history.replaceState(null, '', window.location.pathname);
     setJustVerified(false);
-    const ok = await applyPeople(null);
-    return ok ? { success: true } : { success: false, error: 'Your email is verified, but your account data could not load. Check the database setup.' };
+    const err = await applyPeople(null);
+    return err ? { success: false, error: err } : { success: true };
   }, [applyPeople]);
 
   const resendSignup = useCallback(async (email: string) => {
@@ -224,8 +230,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!username.trim() || !password.trim()) return { success: false, error: 'Enter your email and password' };
       const r = await signInWithEmail(username.trim(), password);
       if (!r.ok) return { success: false, error: r.error };
-      const ok = await applyPeople(null);
-      if (!ok) return { success: false, error: 'Signed in, but your account data could not load. Check the database setup.' };
+      const err = await applyPeople(null);
+      if (err) return { success: false, error: err };
       return { success: true };
     }
     if (!password.trim() || !confirm.trim()) return { success: false, error: 'Fill in all fields' };

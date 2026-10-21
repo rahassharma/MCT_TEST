@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Smartphone, RefreshCw, Wifi, WifiOff, Clock } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
 import { fetchDeviceUsage, type DeviceUsageRow } from '../db/sync';
+import { useAuth } from '../AuthContext';
+import { personDataKey } from '../db/people';
 
 interface DeviceUsagePanelProps {
   userKey: string | null;
@@ -32,6 +34,9 @@ function friendlyName(pkg: string): string {
 export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePanelProps) {
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
+  const { people } = useAuth();
+  // Whose minutes these are: the member whose data key this panel is showing.
+  const memberName = people.find(p => personDataKey(p) === userKey)?.display;
 
   const [data, setData] = useState<DeviceUsageRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,7 +87,7 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
             </div>
             <div>
               <h3 className="text-sm font-extrabold text-brevo-ink">Mobile sync</h3>
-              <p className="text-[11px] text-[#5B6F62]">Guardian companion app</p>
+              <p className="text-[11px] text-[#5B6F62]">{memberName ? `Logged for ${memberName}` : 'Guardian companion app'}</p>
             </div>
           </div>
           <button onClick={loadData} disabled={loading}
@@ -182,7 +187,7 @@ export default function DeviceUsagePanel({ userKey, mobileSync }: DeviceUsagePan
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900">Device Usage</h3>
-            <p className="text-xs text-gray-400 font-medium">Auto-synced from phone</p>
+            <p className="text-xs text-gray-400 font-medium">{memberName ? `Logged for ${memberName}` : 'Auto-synced from phone'}</p>
           </div>
         </div>
         <button onClick={loadData} disabled={loading}
