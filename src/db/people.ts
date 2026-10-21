@@ -24,6 +24,13 @@ export async function claimLegacyData(): Promise<void> {
   try { await c.rpc('claim_legacy_people'); } catch { /* ignored on purpose, see above */ }
 }
 
+/** Deletes one person's stored face data (the phone re-enrols them). Returns an error message or null. */
+export async function clearFaceData(personId: string): Promise<string | null> {
+  const c = getSupabaseClient(); if (!c) return 'Cloud is not configured';
+  const { error } = await c.from('supervised_profiles').delete().eq('user_key', personId);
+  return error ? error.message : null;
+}
+
 /** Loads the account's people, or returns the real database error so it can be shown. */
 export async function loadPeopleOrError(): Promise<{ ok: true; people: Person[] } | { ok: false; error: string }> {
   const c = getSupabaseClient(); if (!c) return { ok: false, error: 'Cloud is not configured' };

@@ -13,6 +13,7 @@ import DbSetupScreen from './components/DbSetupScreen';
 import SyncStatusIndicator from './components/SyncStatusIndicator';
 import SettingsPanel from './components/SettingsPanel';
 import DeviceUsagePanel from './components/DeviceUsagePanel';
+import PersonSwitcher from './components/PersonSwitcher';
 import { ThemeProvider, useTheme } from './ThemeContext';
 import { AuthProvider, useAuth } from './AuthContext';
 import { useStore, getDateKey } from './useStore';
@@ -83,6 +84,7 @@ function Dashboard() {
               >
                 <Sun className="w-4 h-4" />
               </button>
+              <PersonSwitcher />
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-full border border-[#E7ECE7] bg-white hover:bg-brevo-field flex items-center justify-center transition-colors text-[#4B5C53] hover:text-brevo-ink">
                 <Settings2 className="w-4 h-4" />
@@ -298,6 +300,7 @@ function Dashboard() {
 
               {syncIndicator}
               <ThemeToggle />
+              <PersonSwitcher glass />
               <button onClick={() => setShowSettings(true)} title="Settings"
                 className="w-9 h-9 rounded-full bg-white/60 hover:bg-white border border-gray-200/50 flex items-center justify-center transition-all text-gray-500 hover:text-gray-900 hover:scale-105 active:scale-95">
                 <Settings2 className="w-4 h-4" />
