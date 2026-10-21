@@ -164,7 +164,7 @@ export async function removeDeletedUser(userKey: string): Promise<boolean> {
 
 export async function fetchDeviceUsage(userKey: string): Promise<DeviceUsageRow[]> {
   const c = getSupabaseClient(); if (!c) return [];
-  try { const { data, error } = await c.from('minecraft_usage').select('user_key, date, minutes_played, app_breakdown, last_synced').eq('user_key', userKey).order('date', { ascending: false }).limit(7); if (error) return []; return (data || []) as DeviceUsageRow[]; } catch { return []; }
+  try { const { data, error } = await c.from('device_usage').select('user_key, date, minutes_played, app_breakdown, last_synced').eq('user_key', userKey).order('date', { ascending: false }).limit(7); if (error) return []; return (data || []) as DeviceUsageRow[]; } catch { return []; }
 }
 
 // ═══════════════════════════════════
