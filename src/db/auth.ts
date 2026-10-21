@@ -62,3 +62,10 @@ export async function signOutCloud(): Promise<void> {
   const c = getSupabaseClient(); if (!c) return;
   await c.auth.signOut();
 }
+
+export async function resendConfirmation(email: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const c = getSupabaseClient(); if (!c) return { ok: false, error: 'Cloud is not configured' };
+  const { error } = await c.auth.resend({ type: 'signup', email, options: { emailRedirectTo: window.location.origin } });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}

@@ -11,7 +11,7 @@ function loadPw() { try { const s = localStorage.getItem('screentime_passwords')
 const loadPasswords = loadPw;
 
 export default function LoginPage() {
-  const { login, submitRequest, signUp, sendPasswordReset, needsNewPassword, completePasswordReset } = useAuth();
+  const { login, submitRequest, signUp, sendPasswordReset, needsNewPassword, completePasswordReset, justVerified, continueAfterVerification, resendConfirmation } = useAuth();
   const { theme } = useTheme();
   const isGlass = theme === 'glass';
   const cloudConfigured = CLOUD_ENABLED;
@@ -40,6 +40,7 @@ export default function LoginPage() {
   const [newPw, setNewPw] = useState('');
   const [newPwConfirm, setNewPwConfirm] = useState('');
   const [newPwError, setNewPwError] = useState('');
+  const [canResend, setCanResend] = useState(false);
 
   const handleForgotSubmit = async () => {
     setForgotError('');
@@ -68,19 +69,39 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     setInfo('');
-    if (cloudConfigured && mode === 'signup') {
-      const r = await signUp(username.trim(), password, displayName.trim());
+    setCanResend(false);
+    try {
+      if (cloudConfigured && mode === 'signup') {
+        const r = await signUp(username.trim(), password, displayName.trim());
+        if (!r.success) { setError(r.error || 'Could not create the account'); return; }
+        if (r.needsConfirm) { setInfo('Account created. Check your email and tap the confirmation link, then sign in.'); setCanResend(true); }
+        else setInfo('Account created.');
+        return;
+      }
+      const result = await login(username, password, password);
+      if (!result.success) {
+        setError(result.error || 'Login failed');
+        if (/confirm/i.test(result.error || '')) setCanResend(true);
+      }
+    } catch {
+      setError('Sign-in failed. Check your connection and try again.');
+    } finally {
       setLoading(false);
-      if (!r.success) { setError(r.error || 'Could not create the account'); return; }
-      if (r.needsConfirm) setInfo('Account created. Check your email and tap the confirmation link, then sign in.');
-      else setInfo('Account created.');
-      return;
     }
-    const result = await login(username, password, password);
-    if (!result.success) {
-      setError(result.error || 'Login failed');
-    }
+  };
+
+  const handleResend = async () => {
+    setError('');
+    const r = await resendConfirmation(username.trim());
+    if (r.success) setInfo('Confirmation email sent again. Check your inbox.');
+    else setError(r.error || 'Could not resend the email');
+  };
+
+  const handleContinueVerified = async () => {
+    setLoading(true);
+    const r = await continueAfterVerification();
     setLoading(false);
+    if (!r.success) setError(r.error || 'Could not continue');
   };
 
   const handleNewPassword = async () => {
@@ -96,6 +117,25 @@ export default function LoginPage() {
   const helperText = cloudConfigured
     ? 'Cloud login enabled — your account works across devices'
     : 'Local login only until cloud is configured';
+
+  if (cloudConfigured && justVerified) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+        <div className="fixed top-6 right-6 z-50"><ThemeToggle /></div>
+        <div className="w-full max-w-[420px] rounded-[24px] border border-[#E7ECE7] p-10 bg-white text-center">
+          <div className="mx-auto w-14 h-14 rounded-full bg-[#E8F7E0] text-brevo-teal flex items-center justify-center mb-5">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h1 className="text-[24px] font-extrabold text-brevo-ink mb-2">Email verified</h1>
+          <p className="text-[13.5px] text-[#7E8D83] mb-7">Your Guardian account is ready. Continue to open your dashboard.</p>
+          {error && <p className="text-sm text-brevo-danger font-medium mb-4">{error}</p>}
+          <button type="button" onClick={handleContinueVerified} disabled={loading} className="w-full py-[14px] rounded-full bg-brevo-ink text-white font-bold text-[14.5px] hover:bg-[#223830] disabled:opacity-60">
+            {loading ? 'Opening...' : 'Continue to Guardian'}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (cloudConfigured && needsNewPassword) {
     return (
@@ -175,6 +215,9 @@ export default function LoginPage() {
               </form>
 
               {info && <p className="text-sm text-brevo-teal font-medium mt-4">{info}</p>}
+              {cloudConfigured && canResend && (
+                <button type="button" onClick={handleResend} className="mt-3 text-sm text-brevo-teal font-bold hover:underline">Resend confirmation email</button>
+              )}
               {cloudConfigured && mode === 'signup' && (
                 <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder="Your name (shown on your account)"
                   className="w-full mt-4 px-4 py-[13px] border border-[#E6EEE0] rounded-[14px] bg-[#F6FAF2] text-brevo-ink font-medium focus:outline-none focus:border-brevo-teal" />

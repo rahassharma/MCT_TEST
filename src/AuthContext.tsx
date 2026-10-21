@@ -8,7 +8,7 @@ import {
   fetchDeletedUsers, addDeletedUser, removeDeletedUser,
 } from './db/sync';
 import type { UserRequest, RequestStatus, AdminNotification } from './types';
-import { signInWithEmail, signUpWithEmail, sendPasswordReset, setNewPassword, signOutCloud, getCurrentSession, getCurrentAccount } from './db/auth';
+import { signInWithEmail, signUpWithEmail, sendPasswordReset, setNewPassword, signOutCloud, getCurrentSession, getCurrentAccount, resendConfirmation } from './db/auth';
 import { fetchPeople, createPerson, personDataKey, type Person } from './db/people';
 
 export type UserRole = 'admin' | 'user';
@@ -50,6 +50,9 @@ interface AuthContextValue {
   sendPasswordReset: (email: string) => Promise<{ success: boolean; error?: string }>;
   needsNewPassword: boolean;
   completePasswordReset: (newPassword: string) => Promise<{ success: boolean; error?: string }>;
+  justVerified: boolean;
+  continueAfterVerification: () => Promise<{ success: boolean; error?: string }>;
+  resendConfirmation: (email: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const DEFAULT_USERS: Record<string, { password: string; role: UserRole; display: string }> = {
@@ -82,7 +85,8 @@ const AuthContext = createContext<AuthContextValue>({
   markAsRead: async () => {}, getAllNotifications: () => [], dataVersion: 0,
   people: [], selectPerson: () => {}, signUp: async () => ({ success: false }),
   sendPasswordReset: async () => ({ success: false }), needsNewPassword: false,
-  completePasswordReset: async () => ({ success: false }),
+  completePasswordReset: async () => ({ success: false }), justVerified: false,
+  continueAfterVerification: async () => ({ success: false }), resendConfirmation: async () => ({ success: false }),
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -95,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [deletedUsers, setDeletedUsers] = useState<Record<string, string>>({});
   const [people, setPeople] = useState<Person[]>([]);
   const [needsNewPassword, setNeedsNewPassword] = useState(false);
+  const [justVerified, setJustVerified] = useState(false);
   const bump = () => setDataVersion(v => v + 1);
   const cloud = isSupabaseConfigured();
 
@@ -125,18 +130,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, deletedUsers]);
 
   // ── Cloud accounts (Supabase Auth) ──
-  const applyPeople = useCallback(async (preferredId: string | null) => {
-    let list = await fetchPeople();
-    if (list.length === 0) {
-      const acct = await getCurrentAccount();
-      const created = await createPerson(acct?.display || 'Me');
-      list = created ? [created] : [];
-    }
-    setPeople(list);
-    const chosen = list.find(p => p.id === preferredId) ?? list[0];
-    if (chosen) {
+  const applyPeople = useCallback(async (preferredId: string | null): Promise<boolean> => {
+    try {
+      let list = await fetchPeople();
+      if (list.length === 0) {
+        const acct = await getCurrentAccount();
+        const created = await createPerson(acct?.display || 'Me');
+        list = created ? [created] : [];
+      }
+      setPeople(list);
+      const chosen = list.find(p => p.id === preferredId) ?? list[0];
+      if (!chosen) return false;
       localStorage.setItem('guardian_selected_person', chosen.id);
       setUser({ username: chosen.display, role: 'admin', key: personDataKey(chosen) });
+      return true;
+    } catch {
+      return false;
     }
   }, []);
 
@@ -155,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const session = await getCurrentSession();
       if (cancelled) return;
       if (!session) { setUser(null); setPeople([]); return; }
+      if (window.location.hash.includes('type=signup')) { setJustVerified(true); setUser(null); return; }
       if (window.location.hash.includes('type=recovery')) { setNeedsNewPassword(true); setUser(null); return; }
       await applyPeople(localStorage.getItem('guardian_selected_person'));
     })();
@@ -164,12 +174,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(async (email: string, password: string, display: string) => {
     const r = await signUpWithEmail(email, password, display);
     if (!r.ok) return { success: false, error: r.error };
-    if (!r.needsConfirm) await applyPeople(null);
+    if (!r.needsConfirm) {
+      const ok = await applyPeople(null);
+      if (!ok) return { success: false, error: 'Account created, but your data could not load. Check the database setup.' };
+    }
     return { success: true, needsConfirm: r.needsConfirm };
   }, [applyPeople]);
 
   const sendResetEmail = useCallback(async (email: string) => {
     const r = await sendPasswordReset(email);
+    return r.ok ? { success: true } : { success: false, error: r.error };
+  }, []);
+
+  const continueAfterVerification = useCallback(async () => {
+    window.history.replaceState(null, '', window.location.pathname);
+    setJustVerified(false);
+    const ok = await applyPeople(null);
+    return ok ? { success: true } : { success: false, error: 'Your email is verified, but your account data could not load. Check the database setup.' };
+  }, [applyPeople]);
+
+  const resendSignup = useCallback(async (email: string) => {
+    const r = await resendConfirmation(email.trim());
     return r.ok ? { success: true } : { success: false, error: r.error };
   }, []);
 
@@ -187,7 +212,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!username.trim() || !password.trim()) return { success: false, error: 'Enter your email and password' };
       const r = await signInWithEmail(username.trim(), password);
       if (!r.ok) return { success: false, error: r.error };
-      await applyPeople(null);
+      const ok = await applyPeople(null);
+      if (!ok) return { success: false, error: 'Signed in, but your account data could not load. Check the database setup.' };
       return { success: true };
     }
     if (!password.trim() || !confirm.trim()) return { success: false, error: 'Fill in all fields' };
@@ -357,6 +383,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sendNotification, getNotificationsForUser, getUnreadCount, markAsRead, getAllNotifications,
       dataVersion,
       people, selectPerson, signUp, sendPasswordReset: sendResetEmail, needsNewPassword, completePasswordReset,
+      justVerified, continueAfterVerification, resendConfirmation: resendSignup,
     }}>
       {children}
     </AuthContext.Provider>
