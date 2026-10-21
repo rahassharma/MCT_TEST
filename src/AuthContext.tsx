@@ -10,6 +10,7 @@ import {
 import type { UserRequest, RequestStatus, AdminNotification } from './types';
 import { signInWithEmail, signUpWithEmail, sendPasswordReset, setNewPassword, signOutCloud, getCurrentSession, getCurrentAccount, resendConfirmation } from './db/auth';
 import { fetchPeople, createPerson, personDataKey, type Person } from './db/people';
+import { getSupabaseClient } from './db/client';
 
 export type UserRole = 'admin' | 'user';
 export interface User { username: string; role: UserRole; key: string; }
@@ -70,6 +71,11 @@ function savePasswords(p: Record<string, { password: string; role: UserRole; dis
 export function verifyAdminPassword(pw: string): boolean { return loadPasswords().admin?.password === pw; }
 function loadUser(): User | null { try { const s = localStorage.getItem('screentime_user'); if (s) return JSON.parse(s); } catch {} return null; }
 function saveUser(u: User | null) { try { if (u) localStorage.setItem('screentime_user', JSON.stringify(u)); else localStorage.removeItem('screentime_user'); } catch {} }
+
+// Supabase clears the auth tokens from the address once it has read them, so capture the hash
+// as soon as this module loads (before any Supabase call) to know whether this visit came from
+// a confirmation or password-reset link.
+const LAUNCH_HASH = typeof window !== 'undefined' ? window.location.hash : '';
 
 const mkId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -159,16 +165,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // so on that path we stop at the "choose a new password" step instead of logging in.
   useEffect(() => {
     if (!cloud) return;
+    const client = getSupabaseClient();
+    const { data: sub } = client
+      ? client.auth.onAuthStateChange((event) => {
+          if (event === 'PASSWORD_RECOVERY') { setNeedsNewPassword(true); setUser(null); }
+        })
+      : { data: { subscription: { unsubscribe: () => {} } } };
     let cancelled = false;
     (async () => {
       const session = await getCurrentSession();
       if (cancelled) return;
       if (!session) { setUser(null); setPeople([]); return; }
-      if (window.location.hash.includes('type=signup')) { setJustVerified(true); setUser(null); return; }
-      if (window.location.hash.includes('type=recovery')) { setNeedsNewPassword(true); setUser(null); return; }
+      if (LAUNCH_HASH.includes('type=signup')) { setJustVerified(true); setUser(null); return; }
+      if (LAUNCH_HASH.includes('type=recovery')) { setNeedsNewPassword(true); setUser(null); return; }
       await applyPeople(localStorage.getItem('guardian_selected_person'));
     })();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [cloud, applyPeople]);
 
   const signUp = useCallback(async (email: string, password: string, display: string) => {
